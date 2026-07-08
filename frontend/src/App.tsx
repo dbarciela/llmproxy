@@ -79,7 +79,7 @@ export default function App() {
   return (
     <div className="flex flex-col h-screen bg-gray-950 text-gray-100 font-sans">
       {/* Top Toolbar */}
-      <header className="flex items-center justify-between px-6 py-4 bg-gray-900 border-b border-gray-800 shadow-md z-10">
+      <header className="flex items-center justify-between px-6 py-4 bg-gray-900 border-b border-gray-800 shadow-md z-50 relative">
         <div className="flex items-center space-x-6">
           <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">LlamaProxy</h1>
           
@@ -109,7 +109,7 @@ export default function App() {
           <label className="flex items-center space-x-2 cursor-pointer">
             <span className="text-sm font-medium">Network Logging:</span>
             <button 
-              onClick={() => updateSettings(isInterceptRequests, isInterceptResponses, !isLoggingEnabled)}
+              onClick={() => updateSettings(isInterceptRequests, isInterceptResponses, !isLoggingEnabled, interceptRegex)}
               className={`w-12 h-6 rounded-full transition-colors flex items-center px-1 ${isLoggingEnabled ? 'bg-purple-500' : 'bg-gray-700'}`}
             >
               <div className={`w-4 h-4 bg-white rounded-full shadow-md transform transition-transform ${isLoggingEnabled ? 'translate-x-6' : 'translate-x-0'}`}></div>
