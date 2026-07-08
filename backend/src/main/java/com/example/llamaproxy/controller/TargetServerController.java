@@ -294,8 +294,8 @@ public class TargetServerController {
                 
                 String releaseUrl = "https://github.com/" + repo + "/releases/latest";
                 n.setActions(java.util.List.of(
-                    new com.example.llamaproxy.pipeline.NotificationDTO.NotificationAction("Update Now", "/api/proxy/update-llama", null, null),
-                    new com.example.llamaproxy.pipeline.NotificationDTO.NotificationAction("Read Release Notes", null, releaseUrl, null)
+                    new com.example.llamaproxy.pipeline.NotificationDTO.NotificationAction("Update Now", "/api/proxy/update-llama", null, null, true),
+                    new com.example.llamaproxy.pipeline.NotificationDTO.NotificationAction("Read Release Notes", null, releaseUrl, null, false)
                 ));
                 notificationService.addNotification(n);
             }

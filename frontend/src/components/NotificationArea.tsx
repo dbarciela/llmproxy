@@ -6,6 +6,7 @@ export interface NotificationAction {
     api?: string;
     url?: string;
     tab?: string;
+    autoDismiss?: boolean;
 }
 
 export interface NotificationDTO {
@@ -14,8 +15,21 @@ export interface NotificationDTO {
     title: string;
     message: string;
     level: string;
+    createdAt: number;
     actions: NotificationAction[];
 }
+
+const getRelativeTime = (timestamp: number) => {
+    if (!timestamp) return '';
+    const diff = Date.now() - timestamp;
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return 'Just now';
+    if (mins < 60) return `${mins}m ago`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    return `${days}d ago`;
+};
 
 interface Props {
     onChangeTab: (tab: any) => void;
@@ -95,8 +109,11 @@ export function NotificationArea({ onChangeTab }: Props) {
         if (action.tab) {
             onChangeTab(action.tab);
         }
-        markAsRead(notif.id);
-        setIsOpen(false);
+        
+        if (action.autoDismiss !== false) {
+            markAsRead(notif.id);
+            setIsOpen(false);
+        }
     };
 
     const getLevelColors = (level: string) => {
@@ -146,7 +163,10 @@ export function NotificationArea({ onChangeTab }: Props) {
                             notifications.map(n => (
                                 <div key={n.id} className={`p-3 border-b border-gray-800/50 ${getLevelColors(n.level)} bg-opacity-10 border-l-4`}>
                                     <div className="flex justify-between items-start">
-                                        <h4 className="text-sm font-semibold">{n.title}</h4>
+                                        <div className="flex flex-col">
+                                            <h4 className="text-sm font-semibold">{n.title}</h4>
+                                            {n.createdAt && <span className="text-[10px] text-gray-500">{getRelativeTime(n.createdAt)}</span>}
+                                        </div>
                                         <button onClick={(e) => markAsRead(n.id, e)} className="text-gray-500 hover:text-gray-300">
                                             <X className="w-4 h-4" />
                                         </button>

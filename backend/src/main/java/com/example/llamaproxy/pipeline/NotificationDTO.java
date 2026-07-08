@@ -8,9 +8,12 @@ public class NotificationDTO {
     private String title;
     private String message;
     private String level;
+    private long createdAt;
     private List<NotificationAction> actions;
 
-    public NotificationDTO() {}
+    public NotificationDTO() {
+        this.createdAt = System.currentTimeMillis();
+    }
 
     public NotificationDTO(String id, String sourcePlugin, String title, String message, String level, List<NotificationAction> actions) {
         this.id = id;
@@ -18,6 +21,7 @@ public class NotificationDTO {
         this.title = title;
         this.message = message;
         this.level = level;
+        this.createdAt = System.currentTimeMillis();
         this.actions = actions;
     }
 
@@ -36,6 +40,9 @@ public class NotificationDTO {
     public String getLevel() { return level; }
     public void setLevel(String level) { this.level = level; }
 
+    public long getCreatedAt() { return createdAt; }
+    public void setCreatedAt(long createdAt) { this.createdAt = createdAt; }
+
     public List<NotificationAction> getActions() { return actions; }
     public void setActions(List<NotificationAction> actions) { this.actions = actions; }
 
@@ -44,6 +51,7 @@ public class NotificationDTO {
         private String api;
         private String url;
         private String tab;
+        private boolean autoDismiss = true;
 
         public NotificationAction() {}
 
@@ -52,6 +60,14 @@ public class NotificationDTO {
             this.api = api;
             this.url = url;
             this.tab = tab;
+        }
+
+        public NotificationAction(String label, String api, String url, String tab, boolean autoDismiss) {
+            this.label = label;
+            this.api = api;
+            this.url = url;
+            this.tab = tab;
+            this.autoDismiss = autoDismiss;
         }
 
         public String getLabel() { return label; }
@@ -65,5 +81,8 @@ public class NotificationDTO {
 
         public String getTab() { return tab; }
         public void setTab(String tab) { this.tab = tab; }
+
+        public boolean isAutoDismiss() { return autoDismiss; }
+        public void setAutoDismiss(boolean autoDismiss) { this.autoDismiss = autoDismiss; }
     }
 }
