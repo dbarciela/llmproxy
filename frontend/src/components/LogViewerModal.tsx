@@ -19,28 +19,30 @@ export function LogViewerModal({ isOpen, onClose, serverHealthy, webUiUrl, onUpd
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    let intervalId: ReturnType<typeof setInterval>;
+    if (!isOpen) return;
 
-    const fetchLogs = async () => {
-      if (!isOpen) return;
+    setLogs(''); // clear logs on open
+
+    const es = new EventSource('/api/proxy/target-logs-stream');
+
+    es.addEventListener('log', (e: any) => {
       try {
-        const response = await fetch('/api/proxy/target-logs');
-        if (response.ok) {
-          const text = await response.text();
-          setLogs(text);
+        const payload = JSON.parse(e.data);
+        if (payload.type === 'INITIAL' || payload.type === 'APPEND') {
+          setLogs(prev => prev + payload.data);
         }
-      } catch (error) {
-        console.error('Failed to fetch target logs', error);
+      } catch (err) {
+        console.error('Failed to parse log chunk', err);
       }
-    };
+    });
 
-    if (isOpen) {
-      fetchLogs();
-      intervalId = setInterval(fetchLogs, 2000);
-    }
+    es.addEventListener('error', () => {
+      console.error('SSE Error for logs');
+      es.close();
+    });
 
     return () => {
-      if (intervalId) clearInterval(intervalId);
+      es.close();
     };
   }, [isOpen]);
 
@@ -139,7 +141,10 @@ export function LogViewerModal({ isOpen, onClose, serverHealthy, webUiUrl, onUpd
         </div>
         
         <div className="p-3 border-t border-gray-800 bg-gray-900 flex justify-between items-center text-xs text-gray-500">
-          <div>Polling every 2 seconds</div>
+          <div className="flex items-center space-x-1">
+            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+            <span>Live Stream (SSE)</span>
+          </div>
           <label className="flex items-center space-x-2 cursor-pointer">
             <input 
               type="checkbox" 

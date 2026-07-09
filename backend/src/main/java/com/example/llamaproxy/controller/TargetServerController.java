@@ -121,25 +121,55 @@ public class TargetServerController {
         }
     }
 
-    @GetMapping("/target-logs")
-    public ResponseEntity<String> getTargetLogs() {
-        java.io.File logFile = new java.io.File("target-server.log");
-        if (!logFile.exists()) {
-            return ResponseEntity.ok("Log file not found. Have you restarted the server yet?");
-        }
-        try {
-            // Read last 100000 bytes max to avoid memory issues with huge logs
-            java.io.RandomAccessFile raf = new java.io.RandomAccessFile(logFile, "r");
-            long length = raf.length();
-            long startPos = length > 50000 ? length - 50000 : 0;
-            raf.seek(startPos);
-            byte[] bytes = new byte[(int)(length - startPos)];
-            raf.readFully(bytes);
-            raf.close();
-            return ResponseEntity.ok(new String(bytes));
-        } catch (IOException e) {
-            return ResponseEntity.internalServerError().body("Failed to read logs: " + e.getMessage());
-        }
+    @GetMapping(value = "/target-logs-stream", produces = org.springframework.http.MediaType.TEXT_EVENT_STREAM_VALUE)
+    public org.springframework.web.servlet.mvc.method.annotation.SseEmitter streamTargetLogs() {
+        org.springframework.web.servlet.mvc.method.annotation.SseEmitter emitter = new org.springframework.web.servlet.mvc.method.annotation.SseEmitter(Long.MAX_VALUE);
+        Thread.startVirtualThread(() -> {
+            try {
+                java.io.File logFile = new java.io.File("target-server.log");
+                
+                long lastKnownPosition = 0;
+                if (logFile.exists()) {
+                    long length = logFile.length();
+                    lastKnownPosition = length > 50000 ? length - 50000 : 0;
+                } else {
+                    java.util.Map<String, String> payload = new java.util.HashMap<>();
+                    payload.put("type", "INITIAL");
+                    payload.put("data", "Log file not found. Have you restarted the server yet?\n");
+                    emitter.send(org.springframework.web.servlet.mvc.method.annotation.SseEmitter.event().name("log").data(new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(payload)));
+                }
+
+                while (true) {
+                    if (logFile.exists()) {
+                        long length = logFile.length();
+                        if (length < lastKnownPosition) {
+                            // File was truncated or recreated
+                            lastKnownPosition = 0;
+                        }
+                        if (length > lastKnownPosition) {
+                            java.io.RandomAccessFile raf = new java.io.RandomAccessFile(logFile, "r");
+                            raf.seek(lastKnownPosition);
+                            byte[] bytes = new byte[(int) (length - lastKnownPosition)];
+                            raf.readFully(bytes);
+                            raf.close();
+                            lastKnownPosition = length;
+                            
+                            String newLogs = new String(bytes);
+                            java.util.Map<String, String> payload = new java.util.HashMap<>();
+                            payload.put("type", "APPEND");
+                            payload.put("data", newLogs);
+                            emitter.send(org.springframework.web.servlet.mvc.method.annotation.SseEmitter.event().name("log").data(new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(payload)));
+                        }
+                    }
+                    Thread.sleep(500);
+                }
+            } catch (Exception e) {
+                try {
+                    emitter.completeWithError(e);
+                } catch (Exception ex) {}
+            }
+        });
+        return emitter;
     }
 
     @PostMapping("/update-llama")
