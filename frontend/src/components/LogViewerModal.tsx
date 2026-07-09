@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { X, Terminal } from 'lucide-react';
+import { X, Terminal, PowerOff } from 'lucide-react';
 
 interface LogViewerModalProps {
   isOpen: boolean;
@@ -57,6 +57,16 @@ export function LogViewerModal({ isOpen, onClose, serverHealthy, webUiUrl, onUpd
       const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
       const isAtBottom = scrollHeight - scrollTop - clientHeight < 50;
       setAutoScroll(isAtBottom);
+    }
+  };
+
+  const killServer = () => {
+    if (window.confirm("Are you sure you want to kill the target server?")) {
+      fetch('/api/proxy/kill-target', { method: 'POST' })
+        .then(res => {
+          if (!res.ok) alert('Failed to kill server');
+        })
+        .catch(err => console.error("Error killing server:", err));
     }
   };
 
@@ -123,12 +133,22 @@ export function LogViewerModal({ isOpen, onClose, serverHealthy, webUiUrl, onUpd
               </div>
             )}
           </div>
-          <button 
-            onClick={onClose}
-            className="text-gray-500 hover:text-gray-300 transition-colors p-1"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center space-x-3">
+            <button 
+              onClick={killServer}
+              title="Kill Target Server"
+              className="text-xs flex items-center space-x-1 px-3 py-1.5 bg-red-900/30 text-red-400 hover:bg-red-900/50 hover:text-red-300 border border-red-800/50 rounded-lg transition-colors shadow-sm"
+            >
+              <PowerOff className="w-3.5 h-3.5" />
+              <span>Kill Server</span>
+            </button>
+            <button 
+              onClick={onClose}
+              className="text-gray-500 hover:text-gray-300 transition-colors p-1"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
         
         <div 

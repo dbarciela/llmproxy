@@ -121,6 +121,21 @@ public class TargetServerController {
         }
     }
 
+    @PostMapping("/kill-target")
+    public ResponseEntity<String> killTarget() {
+        try {
+            java.net.URL url = new java.net.URL(targetServerUrl);
+            int port = url.getPort();
+            if (port != -1) {
+                killProcessOnPort(port);
+                return ResponseEntity.ok("Kill command issued for port " + port);
+            }
+            return ResponseEntity.badRequest().body("Could not determine port from target URL.");
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body("Failed to execute kill command: " + e.getMessage());
+        }
+    }
+
     @GetMapping(value = "/target-logs-stream", produces = org.springframework.http.MediaType.TEXT_EVENT_STREAM_VALUE)
     public org.springframework.web.servlet.mvc.method.annotation.SseEmitter streamTargetLogs() {
         org.springframework.web.servlet.mvc.method.annotation.SseEmitter emitter = new org.springframework.web.servlet.mvc.method.annotation.SseEmitter(Long.MAX_VALUE);

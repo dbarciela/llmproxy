@@ -43,6 +43,13 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    const tabNames: Record<string, string> = {
+      'intercept': 'Interceptor',
+      'live': 'Live Chat',
+      'archive': 'Network Logs'
+    };
+    document.title = `LlamaProxy - ${tabNames[activeTab] || 'Home'}`;
+
     fetch('/api/proxy/ui/active-tab', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
