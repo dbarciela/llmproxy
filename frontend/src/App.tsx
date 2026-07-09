@@ -63,17 +63,15 @@ export default function App() {
     return () => clearInterval(interval);
   }, []);
 
-  const updateSettings = (req: boolean, res: boolean, logging: boolean, regex: string, uiUrl?: string) => {
-    const finalUiUrl = uiUrl !== undefined ? uiUrl : webUiUrl;
+  const updateSettings = (req: boolean, res: boolean, logging: boolean, regex: string) => {
     setIsInterceptRequests(req);
     setIsInterceptResponses(res);
     setIsLoggingEnabled(logging);
     setInterceptRegex(regex);
-    setWebUiUrl(finalUiUrl);
     fetch('/api/proxy/settings', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ interceptRequests: req, interceptResponses: res, loggingEnabled: logging, interceptRegex: regex, webUiUrl: finalUiUrl })
+      body: JSON.stringify({ interceptRequests: req, interceptResponses: res, loggingEnabled: logging, interceptRegex: regex })
     }).catch(err => console.error("Error updating settings:", err));
   };
 
@@ -201,7 +199,6 @@ export default function App() {
         serverHealthy={serverHealthy} 
         targetUrl={targetUrl}
         webUiUrl={webUiUrl}
-        onUpdateWebUiUrl={(url) => updateSettings(isInterceptRequests, isInterceptResponses, isLoggingEnabled, interceptRegex, url)}
       />
 
       <ProgressModal

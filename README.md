@@ -12,7 +12,8 @@ With LlamaProxy, you can seamlessly intercept, modify, monitor, and archive your
 * **⏸️ Request & Response Interceptor**: Pause incoming requests or outgoing responses mid-flight. Review and modify the JSON payload using the built-in Monaco Editor before forwarding them.
 * **🗃️ Archive & Network Logs**: Automatically logs all traffic to an FTS5-backed SQLite database. Perform blazing-fast full-text searches across your entire history of prompts and responses.
 * **🔔 Stateful Notifications**: An intelligent SSE-driven notification system that alerts you when requests are paused or updates are available, but stays out of your way if you're already viewing the relevant UI panel.
-* **🛠️ Target Server Control**: Check for new releases of `llama.cpp`, automatically download and install updates, view backend logs, and restart the target server directly from the web dashboard.
+* **🛠️ Target Server Control & Console**: Monitor the standard output of your `llama.cpp` process in real-time via SSE, kill the server, or launch a configured Web UI directly from the dashboard.
+* **🔄 Background Updates**: Automatically checks for `llama.cpp` updates, downloads, unzips, and restarts the server via an elegant SSE-powered Progress Modal.
 * **🧹 Smart Archive Cleanup**: Automatically detect and purge redundant chat sessions (where smaller sessions are perfect subsets of larger ones) to keep your database clean.
 
 ---
@@ -41,7 +42,12 @@ With LlamaProxy, you can seamlessly intercept, modify, monitor, and archive your
 * A running instance of `llama.cpp` (or any OpenAI-compatible API)
 
 ### Configuration
-By default, the backend expects your target server to be running on `http://localhost:8080` (or whichever port is defined in your `application.properties`). Ensure you configure `proxy.target.url` in your Spring configuration if your LLM server runs elsewhere.
+By default, the backend expects your target server to be running on `http://localhost:8080/v1` (or whichever port is defined in your `application.properties`). Ensure you configure the following properties in `backend/src/main/resources/application.properties` as needed:
+
+* `target.server.url`: The base URL of the LLM API server.
+* `target.webui.url`: Optional link to a Web UI (like OpenWebUI) accessible from the console modal.
+* `target.server.restart-script`: Path to the script used to restart the target server.
+* `llama.cpp.install.dir`: Path to the directory where `llama.cpp` releases are extracted.
 
 ### Building & Running
 

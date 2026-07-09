@@ -1,5 +1,6 @@
 package com.example.llamaproxy.config;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -8,7 +9,9 @@ public class ProxySettings {
     private boolean interceptResponses = false;
     private boolean loggingEnabled = false;
     private String interceptRegex = "";
-    private String webUiUrl = "";
+
+    @Value("${target.webui.url:}")
+    private String webUiUrl;
 
     public boolean isInterceptRequests() {
         return interceptRequests;

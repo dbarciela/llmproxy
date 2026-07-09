@@ -28,9 +28,6 @@ public class SettingsController {
         } else {
             settings.setInterceptRegex("");
         }
-        if (newSettings.getWebUiUrl() != null) {
-            settings.setWebUiUrl(newSettings.getWebUiUrl());
-        }
         return settings;
     }
 }

@@ -7,14 +7,11 @@ interface LogViewerModalProps {
   serverHealthy?: boolean;
   targetUrl?: string; // Kept in interface just in case App.tsx passes it
   webUiUrl?: string;
-  onUpdateWebUiUrl?: (url: string) => void;
 }
 
-export function LogViewerModal({ isOpen, onClose, serverHealthy, webUiUrl, onUpdateWebUiUrl }: LogViewerModalProps) {
+export function LogViewerModal({ isOpen, onClose, serverHealthy, webUiUrl }: LogViewerModalProps) {
   const [logs, setLogs] = useState<string>('');
   const [autoScroll, setAutoScroll] = useState(true);
-  const [isEditingWebUiUrl, setIsEditingWebUiUrl] = useState(false);
-  const [tempWebUiUrl, setTempWebUiUrl] = useState('');
   const logEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
@@ -81,55 +78,16 @@ export function LogViewerModal({ isOpen, onClose, serverHealthy, webUiUrl, onUpd
               <Terminal className="w-5 h-5" />
               <h2 className="font-semibold">Target Server Console Logs</h2>
             </div>
-            
             {serverHealthy && (
               <div className="flex items-center space-x-2">
-                {isEditingWebUiUrl ? (
-                  <div className="flex items-center space-x-1">
-                    <input 
-                      type="text" 
-                      value={tempWebUiUrl}
-                      onChange={(e) => setTempWebUiUrl(e.target.value)}
-                      className="bg-gray-800 text-xs text-gray-200 px-2 py-1 border border-gray-700 rounded w-48 focus:outline-none focus:border-purple-500"
-                      placeholder="http://127.0.0.1:8080"
-                    />
-                    <button 
-                      onClick={() => {
-                        if (onUpdateWebUiUrl) onUpdateWebUiUrl(tempWebUiUrl);
-                        setIsEditingWebUiUrl(false);
-                      }}
-                      className="px-2 py-1 bg-purple-600 hover:bg-purple-500 text-white text-xs rounded transition-colors"
-                    >
-                      Save
-                    </button>
-                    <button 
-                      onClick={() => setIsEditingWebUiUrl(false)}
-                      className="px-2 py-1 bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs rounded transition-colors"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                ) : (
-                  <>
-                    <a 
-                      href={webUiUrl} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className={`text-xs px-3 py-1 bg-purple-600/20 text-purple-400 hover:bg-purple-600/40 hover:text-purple-300 border border-purple-500/30 rounded-full transition-colors flex items-center shadow-sm ${!webUiUrl && 'opacity-50 pointer-events-none'}`}
-                    >
-                      <span className="mr-1">🔗</span> Open Web UI
-                    </a>
-                    <button 
-                      onClick={() => {
-                        setTempWebUiUrl(webUiUrl || '');
-                        setIsEditingWebUiUrl(true);
-                      }}
-                      className="text-xs text-gray-500 hover:text-gray-300 underline underline-offset-2"
-                    >
-                      Edit URL
-                    </button>
-                  </>
-                )}
+                <a 
+                  href={webUiUrl} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className={`text-xs px-3 py-1 bg-purple-600/20 text-purple-400 hover:bg-purple-600/40 hover:text-purple-300 border border-purple-500/30 rounded-full transition-colors flex items-center shadow-sm ${!webUiUrl && 'opacity-50 pointer-events-none'}`}
+                >
+                  <span className="mr-1">🔗</span> Open Web UI
+                </a>
               </div>
             )}
           </div>
