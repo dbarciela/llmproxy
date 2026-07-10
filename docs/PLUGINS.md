@@ -3,7 +3,7 @@
 O LlamaProxy possui uma arquitetura 100% modular. Podes adicionar novos comportamentos de interceção, modificação ou análise criando **Plugins**.
 
 Um Plugin completo é composto por:
-1. **Backend**: Uma classe Java que implementa a interface `ProxyPlugin`.
+1. **Backend**: Uma classe Java que implementa a interface `BufferingPlugin` ou `StreamingPlugin`.
 2. **Frontend** (Opcional): Um componente React `.tsx` que é injetado dinamicamente na Interface Gráfica.
 
 ---
@@ -12,6 +12,10 @@ Um Plugin completo é composto por:
 
 Todos os plugins no LlamaProxy processam pedidos (Requests) e respostas (Responses) em formato "pipeline" (corrente de execução).
 
+Podes implementar uma de duas interfaces base, dependendo da necessidade do teu plugin:
+- **`BufferingPlugin`**: Recebe o payload do request/response como uma `String` completa. Tem maior impacto na memória para payloads gigantescos (ex: > 50MB), mas é fundamental se o teu plugin precisar de analisar ou editar o documento como um todo (ex: Manipulação de JSON complexa, Deduplicação por Sliding Window, Editores Manuais). Os plugins de Buffering recebem um aviso laranja no ecrã de Configuração ⚠️.
+- **`StreamingPlugin`**: Recebe o payload como um `InputStream` e escreve num `OutputStream`. Processa dados *on-the-fly* sem manter tudo em memória. Ideal para substituições em streaming (ex: expressões regulares simples linha-a-linha).
+
 Cria uma classe na pasta `backend/src/main/java/com/example/llamaproxy/pipeline/plugins/`.
 
 ### Exemplo: `HelloPlugin.java`
@@ -19,7 +23,7 @@ Cria uma classe na pasta `backend/src/main/java/com/example/llamaproxy/pipeline/
 package com.example.llamaproxy.pipeline.plugins;
 
 import com.example.llamaproxy.config.PluginSettingsManager;
-import com.example.llamaproxy.pipeline.ProxyPlugin;
+import com.example.llamaproxy.pipeline.BufferingPlugin;
 import com.example.llamaproxy.pipeline.RequestContext;
 import com.example.llamaproxy.pipeline.ResponseContext;
 import org.springframework.core.annotation.Order;
@@ -27,7 +31,7 @@ import org.springframework.stereotype.Component;
 
 @Component
 @Order(10) // Define a ordem de execução no pipeline
-public class HelloPlugin implements ProxyPlugin {
+public class HelloPlugin implements BufferingPlugin {
 
     private final PluginSettingsManager settingsManager;
 
@@ -49,6 +53,15 @@ public class HelloPlugin implements ProxyPlugin {
 
     @Override
     public String getDescription() { return "A simple greeting plugin."; }
+
+    @Override
+    public String getUiTabName() { return "Say Hello"; }
+
+    @Override
+    public boolean hasUiToggle() { return true; }
+
+    @Override
+    public int getDefaultOrder() { return 20; }
 
     @Override
     public Object getDefaultSettings() { return new HelloSettings(); }
@@ -117,36 +130,18 @@ export function HelloPanel({ settings, updateSettings }: HelloPanelProps) {
 
 ### 3. Registar o Plugin
 
-Abre o ficheiro `frontend/src/plugins/index.ts` e regista o teu componente React para que seja auto-injetado na barra superior do LlamaProxy.
+Abre o ficheiro `frontend/src/plugins/index.tsx` e mapeia o ID do teu plugin para o componente React. A barra superior e a ordem do pipeline são geradas dinamicamente com base nas respostas do backend, logo não precisas de definir a ordem ou os toggles no frontend!
 
 ```typescript
-import type { PluginUI } from './PluginRegistry';
-import { DeduplicatorPanel } from '../components/DeduplicatorPanel';
+import React from 'react';
 import { HelloPanel } from '../components/HelloPanel';
 
-export const enabledPlugins: PluginUI[] = [
-  {
-    id: 'context-deduplicator',
-    order: 10,
-    name: 'Deduplicator',
-    component: DeduplicatorPanel
-  },
-  {
-    id: 'hello-plugin', // DEVE ser igual ao getId() do Java!
-    order: 20, // Define a ordem na barra superior (mapeia com a @Order do backend)
-    name: 'Say Hello',
-    component: HelloPanel,
-    renderTabAction: (settings, updateSettings) => {
-      // (Opcional) Permite injetar um botão de on/off direto na tab!
-      const enabled = settings?.enabled || false;
-      return (
-        <button onClick={(e) => { e.stopPropagation(); updateSettings({ ...settings, enabled: !enabled }); }}>
-          {enabled ? 'ON' : 'OFF'}
-        </button>
-      );
-    }
-  }
-];
+export const pluginComponents: Record<string, React.ComponentType<any>> = {
+  'hello-plugin': HelloPanel
+};
 ```
 
-E já está! Ao iniciar o LlamaProxy, irá aparecer um novo botão "Say Hello" (ordenado corretamente através do atributo `order`) no menu principal. O clique nesse botão renderiza o teu `HelloPanel` que está automaticamente sincronizado com a classe `HelloPlugin` no servidor.
+O LlamaProxy vai detetar o teu plugin no backend, adicionar o toggle na barra superior (se `hasUiToggle() = true`), e carregar o teu componente React (`HelloPanel`) na tab "Say Hello". Também vai aparecer automaticamente na tab de Global Configuration para que a sua ordem de execução possa ser modificada.
+
+### Notas importantes:
+- Os dados injetados via `updateSettings` no Frontend são guardados no disco (`proxy-settings.json`).

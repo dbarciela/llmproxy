@@ -31,6 +31,15 @@ public class ArchivePlugin implements ProxyPlugin {
     @Override
     public Object getDefaultSettings() { return new ArchiveSettings(); }
 
+    @Override
+    public String getUiTabName() { return "Network Logs"; }
+
+    @Override
+    public boolean hasUiToggle() { return true; }
+
+    @Override
+    public int getDefaultOrder() { return 50; }
+
     private final ProxySettings settings;
     private final SessionHistoryRepository repository;
     private final com.example.llamaproxy.pipeline.NotificationService notificationService;

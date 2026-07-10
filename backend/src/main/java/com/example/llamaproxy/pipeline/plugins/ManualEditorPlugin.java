@@ -2,7 +2,7 @@ package com.example.llamaproxy.pipeline.plugins;
 
 import com.example.llamaproxy.config.ProxySettings;
 import com.example.llamaproxy.config.PluginSettingsManager;
-import com.example.llamaproxy.pipeline.ProxyPlugin;
+import com.example.llamaproxy.pipeline.BufferingPlugin;
 import com.example.llamaproxy.pipeline.RequestContext;
 import com.example.llamaproxy.pipeline.ResponseContext;
 import com.example.llamaproxy.pipeline.QueueItemDTO;
@@ -16,7 +16,7 @@ import java.util.concurrent.CountDownLatch;
 
 @Component
 @Order(40)
-public class ManualEditorPlugin implements ProxyPlugin {
+public class ManualEditorPlugin implements BufferingPlugin {
 
     private final PluginSettingsManager settingsManager;
     private final ProxySettings coreSettings;
@@ -45,6 +45,7 @@ public class ManualEditorPlugin implements ProxyPlugin {
         }
     }
 
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties(ignoreUnknown = true)
     public static class ManualEditorSettings {
         public boolean interceptInvalidJson = false;
         public List<String> interceptRegexRules = new ArrayList<>();
@@ -69,6 +70,15 @@ public class ManualEditorPlugin implements ProxyPlugin {
     public Object getDefaultSettings() {
         return new ManualEditorSettings();
     }
+
+    @Override
+    public String getUiTabName() { return "Interceptor"; }
+
+    @Override
+    public boolean hasUiToggle() { return true; }
+
+    @Override
+    public int getDefaultOrder() { return 40; }
 
     @Override
     public void processRequest(RequestContext context) {

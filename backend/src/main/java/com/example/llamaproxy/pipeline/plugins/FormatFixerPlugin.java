@@ -1,14 +1,19 @@
 package com.example.llamaproxy.pipeline.plugins;
 
-import com.example.llamaproxy.pipeline.ProxyPlugin;
+import com.example.llamaproxy.config.ProxySettings;
+import com.example.llamaproxy.config.PluginSettingsManager;
+import com.example.llamaproxy.pipeline.BufferingPlugin;
 import com.example.llamaproxy.pipeline.RequestContext;
 import com.example.llamaproxy.pipeline.ResponseContext;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
+import java.util.regex.Pattern;
+import java.util.regex.Matcher;
+
 @Component
 @Order(20)
-public class FormatFixerPlugin implements ProxyPlugin {
+public class FormatFixerPlugin implements BufferingPlugin {
 
     public static class FormatFixerSettings {
         public boolean enabled = true;
@@ -25,6 +30,15 @@ public class FormatFixerPlugin implements ProxyPlugin {
 
     @Override
     public Object getDefaultSettings() { return new FormatFixerSettings(); }
+
+    @Override
+    public String getUiTabName() { return "Format Fixer"; }
+
+    @Override
+    public boolean hasUiToggle() { return false; }
+
+    @Override
+    public int getDefaultOrder() { return 20; }
 
     @Override
     public void processRequest(RequestContext context) {

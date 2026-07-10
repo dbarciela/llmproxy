@@ -29,6 +29,27 @@ public interface ProxyPlugin {
     Object getDefaultSettings();
 
     /**
+     * The name to display in the UI tab (e.g. "Deduplicator")
+     */
+    default String getUiTabName() { return getName(); }
+
+    /**
+     * Whether this plugin has a global toggle in the UI.
+     */
+    default boolean hasUiToggle() { return false; }
+
+    /**
+     * The default order of execution in the pipeline. 
+     */
+    default int getDefaultOrder() { return 100; }
+
+    /**
+     * Indicates if this plugin requires buffering the entire payload in memory (String).
+     * Streaming plugins (return false) will process data on the fly (InputStream/OutputStream).
+     */
+    default boolean isBuffering() { return true; }
+
+    /**
      * Process the response after it is received from the target server.
      */
     void processResponse(ResponseContext context);

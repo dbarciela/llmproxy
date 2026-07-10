@@ -17,15 +17,13 @@ interface QueuePanelProps {
   isInterceptResponses: boolean;
   interceptInvalidJson: boolean;
   interceptRegexRules: string[];
-  promptReplaceRules: any[];
-  responseReplaceRules: any[];
-  onUpdateSettings: (interceptRequests: boolean, interceptResponses: boolean, logging: boolean, invalidJson: boolean, intRules: string[], pRules: any[], rRules: any[]) => void;
+  onUpdateSettings: (interceptRequests: boolean, interceptResponses: boolean, logging: boolean, invalidJson: boolean, intRules: string[]) => void;
 }
 
 export function QueuePanel({ 
   selectedRequestId, onSelectRequest, 
   isInterceptRequests, isInterceptResponses, 
-  interceptInvalidJson, interceptRegexRules, promptReplaceRules, responseReplaceRules,
+  interceptInvalidJson, interceptRegexRules,
   onUpdateSettings 
 }: QueuePanelProps) {
   const [queue, setQueue] = useState<RequestContext[]>([]);
@@ -76,7 +74,7 @@ export function QueuePanel({
           <label className="flex items-center justify-between cursor-pointer">
             <span className="text-xs font-medium text-gray-400">Intercept Requests</span>
             <button 
-              onClick={() => onUpdateSettings(!isInterceptRequests, isInterceptResponses, false, interceptInvalidJson, interceptRegexRules, promptReplaceRules, responseReplaceRules)}
+              onClick={() => onUpdateSettings(!isInterceptRequests, isInterceptResponses, false, interceptInvalidJson, interceptRegexRules)}
               className={`w-10 h-5 rounded-full transition-colors flex items-center px-1 ${isInterceptRequests ? 'bg-blue-600' : 'bg-gray-700'}`}
             >
               <div className={`w-3.5 h-3.5 bg-white rounded-full shadow-md transform transition-transform ${isInterceptRequests ? 'translate-x-5' : 'translate-x-0'}`}></div>
@@ -85,7 +83,7 @@ export function QueuePanel({
           <label className="flex items-center justify-between cursor-pointer">
             <span className="text-xs font-medium text-gray-400">Intercept Responses</span>
             <button 
-              onClick={() => onUpdateSettings(isInterceptRequests, !isInterceptResponses, false, interceptInvalidJson, interceptRegexRules, promptReplaceRules, responseReplaceRules)}
+              onClick={() => onUpdateSettings(isInterceptRequests, !isInterceptResponses, false, interceptInvalidJson, interceptRegexRules)}
               className={`w-10 h-5 rounded-full transition-colors flex items-center px-1 ${isInterceptResponses ? 'bg-purple-600' : 'bg-gray-700'}`}
             >
               <div className={`w-3.5 h-3.5 bg-white rounded-full shadow-md transform transition-transform ${isInterceptResponses ? 'translate-x-5' : 'translate-x-0'}`}></div>
@@ -94,7 +92,7 @@ export function QueuePanel({
           <label className="flex items-center justify-between cursor-pointer">
             <span className="text-xs font-medium text-gray-400">Intercept Invalid JSON</span>
             <button 
-              onClick={() => onUpdateSettings(isInterceptRequests, isInterceptResponses, false, !interceptInvalidJson, interceptRegexRules, promptReplaceRules, responseReplaceRules)}
+              onClick={() => onUpdateSettings(isInterceptRequests, isInterceptResponses, false, !interceptInvalidJson, interceptRegexRules)}
               className={`w-10 h-5 rounded-full transition-colors flex items-center px-1 ${interceptInvalidJson ? 'bg-red-600' : 'bg-gray-700'}`}
             >
               <div className={`w-3.5 h-3.5 bg-white rounded-full shadow-md transform transition-transform ${interceptInvalidJson ? 'translate-x-5' : 'translate-x-0'}`}></div>
@@ -106,19 +104,7 @@ export function QueuePanel({
               title="Regex Matcher (Optional)" 
               rules={interceptRegexRules} 
               isObjectRule={false} 
-              onChange={(newRules) => onUpdateSettings(isInterceptRequests, isInterceptResponses, false, interceptInvalidJson, newRules, promptReplaceRules, responseReplaceRules)} 
-            />
-            <RegexRuleList 
-              title="Request Find & Replace" 
-              rules={promptReplaceRules} 
-              isObjectRule={true} 
-              onChange={(newRules) => onUpdateSettings(isInterceptRequests, isInterceptResponses, false, interceptInvalidJson, interceptRegexRules, newRules, responseReplaceRules)} 
-            />
-            <RegexRuleList 
-              title="Response Find & Replace" 
-              rules={responseReplaceRules} 
-              isObjectRule={true} 
-              onChange={(newRules) => onUpdateSettings(isInterceptRequests, isInterceptResponses, false, interceptInvalidJson, interceptRegexRules, promptReplaceRules, newRules)} 
+              onChange={(newRules) => onUpdateSettings(isInterceptRequests, isInterceptResponses, false, interceptInvalidJson, newRules)} 
             />
           </div>
         </div>

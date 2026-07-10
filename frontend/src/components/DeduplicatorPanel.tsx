@@ -14,6 +14,7 @@ interface DeduplicatedBlock {
 export function DeduplicatorPanel({ settings, updateSettings }: DeduplicatorPanelProps) {
   const deduplicationThreshold = settings?.threshold || 500;
   const [totalSavedChars, setTotalSavedChars] = useState(0);
+  const [totalOriginalChars, setTotalOriginalChars] = useState(0);
   const [blocks, setBlocks] = useState<DeduplicatedBlock[]>([]);
   const [expandedBlocks, setExpandedBlocks] = useState<Record<string, boolean>>({});
   const [localThreshold, setLocalThreshold] = useState(deduplicationThreshold.toString());
@@ -21,6 +22,27 @@ export function DeduplicatorPanel({ settings, updateSettings }: DeduplicatorPane
   useEffect(() => {
     setLocalThreshold(deduplicationThreshold.toString());
   }, [deduplicationThreshold]);
+
+  useEffect(() => {
+    fetch('/api/proxy/plugins/context-deduplicator/stats')
+      .then(res => res.json())
+      .then(stats => {
+        if (stats.savedChars) {
+          setTotalSavedChars(stats.savedChars);
+        }
+        if (stats.totalOriginalChars) {
+          setTotalOriginalChars(stats.totalOriginalChars);
+        }
+        if (stats.blocks) {
+          const newBlocks: DeduplicatedBlock[] = Object.entries(stats.blocks).map(([id, text]) => ({
+            id,
+            originalText: text as string
+          }));
+          setBlocks(newBlocks.reverse().slice(0, 50)); // keep last 50, newest first
+        }
+      })
+      .catch(console.error);
+  }, []);
 
   useEffect(() => {
     const eventSource = new EventSource('/api/proxy/stream');
@@ -31,6 +53,9 @@ export function DeduplicatorPanel({ settings, updateSettings }: DeduplicatorPane
           const stats = payload.data;
           if (stats.savedChars) {
             setTotalSavedChars(prev => prev + stats.savedChars);
+          }
+          if (stats.totalOriginalChars) {
+            setTotalOriginalChars(prev => prev + stats.totalOriginalChars);
           }
           if (stats.blocks) {
             const newBlocks: DeduplicatedBlock[] = Object.entries(stats.blocks).map(([id, text]) => ({
@@ -93,14 +118,14 @@ export function DeduplicatorPanel({ settings, updateSettings }: DeduplicatorPane
           <div className="flex flex-col">
             <span className="text-xs text-gray-400 uppercase tracking-wider font-semibold mb-1">Total Saved</span>
             <span className="text-xl font-bold text-green-400">
-              {(totalSavedChars / 1024).toFixed(2)} KB
+              {(totalSavedChars / 1024).toFixed(2)} KB <span className="text-sm font-normal text-green-500/70 ml-1">({totalOriginalChars > 0 ? ((totalSavedChars / totalOriginalChars) * 100).toFixed(1) : "0.0"}%)</span>
             </span>
           </div>
           <div className="h-10 w-px bg-gray-700"></div>
           <div className="flex flex-col">
             <span className="text-xs text-gray-400 uppercase tracking-wider font-semibold mb-1">Tokens (Est.)</span>
             <span className="text-xl font-bold text-blue-400">
-              {Math.round(totalSavedChars / 4).toLocaleString()}
+              {Math.round(totalSavedChars / 4).toLocaleString()} <span className="text-sm font-normal text-blue-500/70 ml-1">({totalOriginalChars > 0 ? ((totalSavedChars / totalOriginalChars) * 100).toFixed(1) : "0.0"}%)</span>
             </span>
           </div>
         </div>

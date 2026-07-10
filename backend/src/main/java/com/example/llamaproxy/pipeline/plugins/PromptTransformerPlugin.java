@@ -63,6 +63,15 @@ public class PromptTransformerPlugin implements ProxyPlugin {
     }
 
     @Override
+    public String getUiTabName() { return "Transformer"; }
+
+    @Override
+    public boolean hasUiToggle() { return true; }
+
+    @Override
+    public int getDefaultOrder() { return 30; }
+
+    @Override
     public void processRequest(RequestContext context) {
         TransformerSettings pluginSettings = settingsManager.getSettingsAs(getId(), TransformerSettings.class);
         if (pluginSettings == null || pluginSettings.promptReplaceRules.isEmpty()) return;

@@ -18,6 +18,7 @@ With LlamaProxy, you can seamlessly intercept, modify, monitor, and archive your
 * **✂️ Context Deduplication**: Seamlessly strip out enormous duplicated text blocks from conversations using a blazing-fast Rabin-Karp algorithm. Saves massive amounts of tokens and VRAM while preserving cache integrity.
 * **⚡ Prompt Transformer**: Automatically transform prompts and responses using Regex rules before they reach the model or client.
 * **💻 Hardware Metrics & Tokenization**: Monitor system VRAM and Context Token Limits in a real-time widget, alongside Time To First Token (TTFT) and Generation Speed (T/s).
+* **⚙️ Global Configuration**: Dynamically reorder the execution pipeline of plugins via a drag-and-drop interface, giving you full control over how requests are processed.
 * **🧩 Dynamic Plugin Architecture**: Completely decoupled backend and frontend plugins. Build new UI panels and interceptors without touching the core framework. See the [Plugins Documentation](docs/PLUGINS.md).
 
 ---

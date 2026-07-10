@@ -1,11 +1,12 @@
 import { Scissors } from 'lucide-react';
+import { RegexRuleList } from './RegexRuleList';
 
 interface TransformerPanelProps {
   settings: any;
   updateSettings: (newSettings: any) => void;
 }
 
-export function TransformerPanel({ settings }: TransformerPanelProps) {
+export function TransformerPanel({ settings, updateSettings }: TransformerPanelProps) {
   const promptRules = settings?.promptReplaceRules || [];
   const responseRules = settings?.responseReplaceRules || [];
 
@@ -21,37 +22,27 @@ export function TransformerPanel({ settings }: TransformerPanelProps) {
         </div>
       </div>
       
-      <div className="flex-1 overflow-y-auto space-y-6">
+      <div className="flex-1 overflow-y-auto space-y-6 max-w-4xl mx-auto w-full">
         <div className="bg-gray-800 p-5 rounded-xl border border-gray-700">
-          <h3 className="text-lg font-medium text-gray-200 mb-4">Prompt Transformation Rules</h3>
-          {promptRules.length === 0 ? (
-            <p className="text-sm text-gray-500">No prompt rules defined. Configure them in the Interceptor queue.</p>
-          ) : (
-            <div className="space-y-3">
-              {promptRules.map((rule: any, i: number) => (
-                <div key={i} className="flex flex-col bg-gray-900 p-3 rounded-lg border border-gray-700">
-                  <div className="text-sm font-mono text-pink-400 mb-1">{rule.regex}</div>
-                  <div className="text-sm font-mono text-green-400">➔ {rule.with}</div>
-                </div>
-              ))}
-            </div>
-          )}
+          <h3 className="text-lg font-medium text-gray-200 mb-4">Request Transformation</h3>
+          <p className="text-sm text-gray-400 mb-4">These rules will be applied to the outgoing prompt payload before it reaches the target LLM.</p>
+          <RegexRuleList 
+            title="Request Find & Replace" 
+            rules={promptRules} 
+            isObjectRule={true} 
+            onChange={(newRules) => updateSettings({ ...settings, promptReplaceRules: newRules })} 
+          />
         </div>
 
         <div className="bg-gray-800 p-5 rounded-xl border border-gray-700">
-          <h3 className="text-lg font-medium text-gray-200 mb-4">Response Transformation Rules</h3>
-          {responseRules.length === 0 ? (
-            <p className="text-sm text-gray-500">No response rules defined. Configure them in the Interceptor queue.</p>
-          ) : (
-            <div className="space-y-3">
-              {responseRules.map((rule: any, i: number) => (
-                <div key={i} className="flex flex-col bg-gray-900 p-3 rounded-lg border border-gray-700">
-                  <div className="text-sm font-mono text-pink-400 mb-1">{rule.regex}</div>
-                  <div className="text-sm font-mono text-green-400">➔ {rule.with}</div>
-                </div>
-              ))}
-            </div>
-          )}
+          <h3 className="text-lg font-medium text-gray-200 mb-4">Response Transformation</h3>
+          <p className="text-sm text-gray-400 mb-4">These rules will be applied to the incoming payload before it is forwarded to the client.</p>
+          <RegexRuleList 
+            title="Response Find & Replace" 
+            rules={responseRules} 
+            isObjectRule={true} 
+            onChange={(newRules) => updateSettings({ ...settings, responseReplaceRules: newRules })} 
+          />
         </div>
       </div>
     </div>

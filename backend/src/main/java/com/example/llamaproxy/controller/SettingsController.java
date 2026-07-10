@@ -13,10 +13,12 @@ public class SettingsController {
 
     private final ProxySettings settings;
     private final PluginSettingsManager pluginSettingsManager;
+    private final com.example.llamaproxy.pipeline.ProxyPipeline proxyPipeline;
 
-    public SettingsController(ProxySettings settings, PluginSettingsManager pluginSettingsManager) {
+    public SettingsController(ProxySettings settings, PluginSettingsManager pluginSettingsManager, com.example.llamaproxy.pipeline.ProxyPipeline proxyPipeline) {
         this.settings = settings;
         this.pluginSettingsManager = pluginSettingsManager;
+        this.proxyPipeline = proxyPipeline;
     }
 
     @GetMapping("/settings")
@@ -57,5 +59,26 @@ public class SettingsController {
     public void updatePluginSettings(@PathVariable String pluginId, @RequestBody Map<String, Object> newSettingsMap) {
         com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
         pluginSettingsManager.updateSettings(pluginId, mapper.valueToTree(newSettingsMap));
+    }
+
+    @GetMapping("/plugins/metadata")
+    public java.util.List<Map<String, Object>> getPluginMetadata() {
+        java.util.List<Map<String, Object>> metadataList = new java.util.ArrayList<>();
+        for (com.example.llamaproxy.pipeline.ProxyPlugin plugin : proxyPipeline.getPlugins()) {
+            Map<String, Object> metadata = new HashMap<>();
+            metadata.put("id", plugin.getId());
+            metadata.put("name", plugin.getName());
+            metadata.put("uiTabName", plugin.getUiTabName());
+            metadata.put("hasUiToggle", plugin.hasUiToggle());
+            metadata.put("isBuffering", plugin.isBuffering());
+            metadata.put("description", plugin.getDescription());
+            metadataList.add(metadata);
+        }
+        return metadataList;
+    }
+
+    @PutMapping("/plugins/order")
+    public void updatePluginOrder(@RequestBody java.util.List<String> orderedIds) {
+        proxyPipeline.setPluginOrder(orderedIds);
     }
 }

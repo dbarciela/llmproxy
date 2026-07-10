@@ -9,7 +9,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -174,5 +173,47 @@ class ContextDeduplicatorPluginTest {
         
         String newPayload = requestContext.getPayload();
         assertTrue(newPayload.contains("79 chars") || newPayload.contains("100 chars"), "Overlap test failed: " + newPayload);
+    }
+
+    @Test
+    void testComplexMixedInformationDeduplication() {
+        mockSettings(true, 50);
+
+        // Simulated large context payload with code blocks, JSON, and hidden duplication
+        String duplicateCodeBlock = "public void process(Data input) {\n    if (input == null) return;\n    input.sanitize();\n    repository.save(input);\n    logger.info(\"Data processed successfully\");\n}";
+        String duplicateJsonData = "{\"id\": 12345, \"name\": \"Complex Test Case\", \"metadata\": {\"created\": \"2026-07-10\", \"status\": \"active\", \"tags\": [\"test\", \"complex\", \"deduplication\"]}}";
+        
+        String historyMsg1 = "Here is the code block I am working on:\n```java\n" + duplicateCodeBlock + "\n```\nWhat do you think?";
+        String historyMsg2 = "That looks good. You might also want to check the JSON output.";
+        String historyMsg3 = "Yes, the JSON output is:\n```json\n" + duplicateJsonData + "\n```";
+        
+        // The current message will resend both the code block and the json data mixed with other noise
+        String currentMsg = "I re-ran the tests. For context, the code was:\n" + duplicateCodeBlock + 
+                "\nAnd it returned this JSON again: \n" + duplicateJsonData + 
+                "\nCan you tell me why the status is active?";
+        
+        // Construct the full JSON payload
+        String originalPayload = String.format("{\"messages\":[" +
+                "{\"role\":\"user\",\"content\":\"%s\"}," +
+                "{\"role\":\"assistant\",\"content\":\"%s\"}," +
+                "{\"role\":\"user\",\"content\":\"%s\"}," +
+                "{\"role\":\"user\",\"content\":\"%s\"}" +
+                "]}", 
+                historyMsg1.replace("\"", "\\\"").replace("\n", "\\n"), 
+                historyMsg2.replace("\"", "\\\"").replace("\n", "\\n"), 
+                historyMsg3.replace("\"", "\\\"").replace("\n", "\\n"), 
+                currentMsg.replace("\"", "\\\"").replace("\n", "\\n"));
+        
+        requestContext.setPayload(originalPayload);
+        plugin.processRequest(requestContext);
+        
+        String newPayload = requestContext.getPayload();
+        assertNotEquals(originalPayload, newPayload, "Payload should be modified due to duplications");
+        
+        // Assert that both the code block and JSON data were caught and replaced with markers
+        assertTrue(newPayload.contains("Duplicated context omitted"), "Should contain deduplication markers");
+        
+        // The exact contents shouldn't be fully present in the final prompt if deduplicated
+        assertFalse(newPayload.substring(newPayload.lastIndexOf("I re-ran the tests")).contains("tags"), "JSON block should be removed from current prompt");
     }
 }
