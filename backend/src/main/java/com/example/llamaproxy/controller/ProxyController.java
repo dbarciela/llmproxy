@@ -211,11 +211,15 @@ public class ProxyController {
             }
             
             if (usageJson != null) {
-                com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-                java.util.Map usage = mapper.readValue(usageJson, java.util.Map.class);
-                if (usage.containsKey("prompt_tokens")) promptTokens = ((Number) usage.get("prompt_tokens")).intValue();
-                if (usage.containsKey("completion_tokens")) completionTokens = ((Number) usage.get("completion_tokens")).intValue();
-                if (usage.containsKey("total_tokens")) totalTokens = ((Number) usage.get("total_tokens")).intValue();
+                try {
+                    com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+                    java.util.Map usage = mapper.readValue(usageJson, java.util.Map.class);
+                    if (usage.containsKey("prompt_tokens")) promptTokens = ((Number) usage.get("prompt_tokens")).intValue();
+                    if (usage.containsKey("completion_tokens")) completionTokens = ((Number) usage.get("completion_tokens")).intValue();
+                    if (usage.containsKey("total_tokens")) totalTokens = ((Number) usage.get("total_tokens")).intValue();
+                } catch (Exception e) {
+                    // Ignore malformed usage block in stream
+                }
             }
 
             double tokensPerSec = 0;

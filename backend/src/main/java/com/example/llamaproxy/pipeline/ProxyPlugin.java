@@ -9,6 +9,26 @@ public interface ProxyPlugin {
     void processRequest(RequestContext context);
 
     /**
+     * Unique ID of the plugin (e.g. "context-deduplicator")
+     */
+    String getId();
+
+    /**
+     * Human-readable name of the plugin
+     */
+    String getName();
+
+    /**
+     * Brief description of what the plugin does
+     */
+    String getDescription();
+
+    /**
+     * Default settings for this plugin (will be serialized to JSON)
+     */
+    Object getDefaultSettings();
+
+    /**
      * Process the response after it is received from the target server.
      */
     void processResponse(ResponseContext context);

@@ -1,6 +1,7 @@
 package com.example.llamaproxy.pipeline.plugins;
 
 import com.example.llamaproxy.config.ProxySettings;
+import com.example.llamaproxy.config.PluginSettingsManager;
 import com.example.llamaproxy.pipeline.ProxyPlugin;
 import com.example.llamaproxy.pipeline.RequestContext;
 import com.example.llamaproxy.pipeline.ResponseContext;
@@ -11,39 +12,109 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 @Component
-@Order(1) // Run before ManualEditorPlugin which is Order(2)
+@Order(30)
 public class PromptTransformerPlugin implements ProxyPlugin {
 
-    private final ProxySettings settings;
+    private final PluginSettingsManager settingsManager;
 
-    public PromptTransformerPlugin(ProxySettings settings) {
-        this.settings = settings;
+    public PromptTransformerPlugin(PluginSettingsManager settingsManager) {
+        this.settingsManager = settingsManager;
+    }
+
+    public static class PromptReplaceRule {
+        public String regex;
+        public String with;
+        
+        public PromptReplaceRule() {}
+        public PromptReplaceRule(String regex, String with) {
+            this.regex = regex;
+            this.with = with;
+        }
+        
+        public String getRegex() { return regex; }
+        public void setRegex(String regex) { this.regex = regex; }
+        public String getWith() { return with; }
+        public void setWith(String with) { this.with = with; }
+    }
+
+    public static class TransformerSettings {
+        public java.util.List<PromptReplaceRule> promptReplaceRules = new java.util.ArrayList<>();
+        public java.util.List<PromptReplaceRule> responseReplaceRules = new java.util.ArrayList<>();
+    }
+
+    @Override
+    public String getId() {
+        return "prompt-transformer";
+    }
+
+    @Override
+    public String getName() {
+        return "Regex Matcher";
+    }
+
+    @Override
+    public String getDescription() {
+        return "Modify prompts and responses dynamically using Regex rules.";
+    }
+
+    @Override
+    public Object getDefaultSettings() {
+        return new TransformerSettings();
     }
 
     @Override
     public void processRequest(RequestContext context) {
-        String regex = settings.getPromptReplaceRegex();
-        String replacement = settings.getPromptReplaceWith();
+        TransformerSettings pluginSettings = settingsManager.getSettingsAs(getId(), TransformerSettings.class);
+        if (pluginSettings == null || pluginSettings.promptReplaceRules.isEmpty()) return;
 
-        if (regex != null && !regex.isEmpty()) {
-            try {
-                if (context.getPayload() != null) {
+        String currentPayload = context.getPayload();
+        if (currentPayload == null || currentPayload.isEmpty()) return;
+
+        for (PromptReplaceRule rule : pluginSettings.promptReplaceRules) {
+            String regex = rule.getRegex();
+            String replacement = rule.getWith();
+            
+            if (regex != null && !regex.isEmpty()) {
+                try {
                     Pattern pattern = Pattern.compile(regex);
-                    Matcher matcher = pattern.matcher(context.getPayload());
+                    Matcher matcher = pattern.matcher(currentPayload);
                     
                     if (matcher.find()) {
-                        String newPayload = matcher.replaceAll(replacement == null ? "" : replacement);
-                        context.setPayload(newPayload);
+                        currentPayload = matcher.replaceAll(replacement == null ? "" : replacement);
                     }
+                } catch (Exception e) {
+                    // Ignore regex compilation errors or replacement errors during runtime
                 }
-            } catch (Exception e) {
-                // Ignore regex compilation errors or replacement errors during runtime
             }
         }
+        context.setPayload(currentPayload);
     }
 
     @Override
     public void processResponse(ResponseContext context) {
-        // No-op for responses in this plugin
+        TransformerSettings pluginSettings = settingsManager.getSettingsAs(getId(), TransformerSettings.class);
+        if (pluginSettings == null || pluginSettings.responseReplaceRules.isEmpty()) return;
+
+        String currentPayload = context.getPayload();
+        if (currentPayload == null || currentPayload.isEmpty()) return;
+
+        for (PromptReplaceRule rule : pluginSettings.responseReplaceRules) {
+            String regex = rule.getRegex();
+            String replacement = rule.getWith();
+            
+            if (regex != null && !regex.isEmpty()) {
+                try {
+                    Pattern pattern = Pattern.compile(regex);
+                    Matcher matcher = pattern.matcher(currentPayload);
+                    
+                    if (matcher.find()) {
+                        currentPayload = matcher.replaceAll(replacement == null ? "" : replacement);
+                    }
+                } catch (Exception e) {
+                    // Ignore regex compilation errors or replacement errors during runtime
+                }
+            }
+        }
+        context.setPayload(currentPayload);
     }
 }

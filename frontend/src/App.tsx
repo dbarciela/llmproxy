@@ -7,6 +7,7 @@ import { LogViewerModal } from './components/LogViewerModal';
 import { NotificationArea } from './components/NotificationArea';
 import { ProgressModal } from './components/ProgressModal';
 import { useBackgroundTasks } from './hooks/useBackgroundTasks';
+import { enabledPlugins } from './plugins';
 import { Activity, ServerCrash } from 'lucide-react';
 import { HardwareWidget } from './components/HardwareWidget';
 
@@ -16,15 +17,12 @@ export default function App() {
   const [isLoggingEnabled, setIsLoggingEnabled] = useState(false);
   const [serverHealthy, setServerHealthy] = useState(false);
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'intercept' | 'live' | 'archive'>('intercept');
+  const [activeTab, setActiveTab] = useState<string>('intercept');
   const [isLogsOpen, setIsLogsOpen] = useState(false);
   
   const { tasks, startTask, minimizeTask, openTask, closeTask } = useBackgroundTasks();
 
-  const [interceptRegex, setInterceptRegex] = useState<string>('');
-  const [interceptInvalidJson, setInterceptInvalidJson] = useState(false);
-  const [promptReplaceRegex, setPromptReplaceRegex] = useState<string>('');
-  const [promptReplaceWith, setPromptReplaceWith] = useState<string>('');
+  const [pluginSettings, setPluginSettings] = useState<Record<string, any>>({});
 
   const [webUiUrl, setWebUiUrl] = useState<string>('');
   const [targetUrl, setTargetUrl] = useState<string>('');
@@ -37,10 +35,7 @@ export default function App() {
       setIsInterceptRequests(settingsData.interceptRequests);
       setIsInterceptResponses(settingsData.interceptResponses);
       setIsLoggingEnabled(settingsData.loggingEnabled);
-      setInterceptRegex(settingsData.interceptRegex || '');
-      setInterceptInvalidJson(settingsData.interceptInvalidJson || false);
-      setPromptReplaceRegex(settingsData.promptReplaceRegex || '');
-      setPromptReplaceWith(settingsData.promptReplaceWith || '');
+      setPluginSettings(settingsData.plugins || {});
       setTargetUrl(url);
       setWebUiUrl(settingsData.webUiUrl || url.replace('/v1', ''));
     }).catch(err => console.error("Error fetching initialization data:", err));
@@ -71,27 +66,28 @@ export default function App() {
     return () => clearInterval(interval);
   }, []);
 
-  const updateSettings = (req: boolean, res: boolean, logging: boolean, regex: string, invalidJson: boolean, pFind: string, pReplace: string) => {
+  const updateCoreSettings = (req: boolean, res: boolean, logging: boolean) => {
     setIsInterceptRequests(req);
     setIsInterceptResponses(res);
     setIsLoggingEnabled(logging);
-    setInterceptRegex(regex);
-    setInterceptInvalidJson(invalidJson);
-    setPromptReplaceRegex(pFind);
-    setPromptReplaceWith(pReplace);
     fetch('/api/proxy/settings', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ 
         interceptRequests: req, 
         interceptResponses: res, 
-        loggingEnabled: logging, 
-        interceptRegex: regex,
-        interceptInvalidJson: invalidJson,
-        promptReplaceRegex: pFind,
-        promptReplaceWith: pReplace
+        loggingEnabled: logging
       })
     }).catch(err => console.error("Error updating settings:", err));
+  };
+
+  const updatePluginSettings = (pluginId: string, newSettings: any) => {
+    setPluginSettings(prev => ({ ...prev, [pluginId]: newSettings }));
+    fetch(`/api/proxy/plugins/${pluginId}/settings`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newSettings)
+    }).catch(err => console.error("Error updating plugin settings:", err));
   };
 
   const restartServer = () => {
@@ -105,6 +101,101 @@ export default function App() {
     }
   };
 
+  const allTabs = [
+    ...enabledPlugins.map(p => ({
+      id: p.id,
+      name: p.name || p.id,
+      order: p.order || 99,
+      icon: p.icon,
+      renderAction: p.renderTabAction 
+        ? () => p.renderTabAction!(pluginSettings[p.id] || {}, (newSettings) => updatePluginSettings(p.id, newSettings)) 
+        : undefined,
+      renderContent: () => {
+        const PluginComponent = p.component;
+        return (
+          <div className="flex-1 flex overflow-hidden">
+            <PluginComponent settings={pluginSettings[p.id] || {}} updateSettings={(s: any) => updatePluginSettings(p.id, s)} />
+          </div>
+        );
+      }
+    })),
+    {
+      id: 'intercept',
+      name: 'Interceptor',
+      order: 40,
+      icon: undefined,
+      renderAction: () => {
+        const isAnyInterceptEnabled = isInterceptRequests || isInterceptResponses;
+        return (
+          <button 
+            onClick={() => {
+              if (!isAnyInterceptEnabled) {
+                updateCoreSettings(true, true, isLoggingEnabled);
+              } else {
+                updateCoreSettings(false, false, isLoggingEnabled);
+              }
+            }}
+            className={`ml-1 w-8 h-8 flex items-center justify-center rounded-full transition-colors cursor-pointer ${isAnyInterceptEnabled ? 'bg-blue-500/20 text-blue-400 hover:bg-blue-500/30' : 'bg-gray-700/50 text-gray-400 hover:bg-gray-700'}`}
+            title={isAnyInterceptEnabled ? "Disable All Interceptions" : "Enable All Interceptions"}
+          >
+            <div className={`w-2.5 h-2.5 rounded-full ${isAnyInterceptEnabled ? 'bg-blue-400 shadow-[0_0_8px_rgba(96,165,250,0.8)]' : 'bg-gray-500'}`}></div>
+          </button>
+        );
+      },
+      renderContent: () => (
+        <>
+          <div className="w-80 h-full">
+            <QueuePanel 
+              selectedRequestId={selectedRequestId} 
+              onSelectRequest={setSelectedRequestId}
+              isInterceptRequests={isInterceptRequests}
+              isInterceptResponses={isInterceptResponses}
+              interceptInvalidJson={pluginSettings['manual-editor']?.interceptInvalidJson || false}
+              interceptRegexRules={pluginSettings['manual-editor']?.interceptRegexRules || []}
+              promptReplaceRules={pluginSettings['prompt-transformer']?.promptReplaceRules || []}
+              responseReplaceRules={pluginSettings['prompt-transformer']?.responseReplaceRules || []}
+              onUpdateSettings={(req, res, log, invalid, intR, pR, rR) => {
+                updateCoreSettings(req, res, log);
+                updatePluginSettings('manual-editor', { ...pluginSettings['manual-editor'], interceptInvalidJson: invalid, interceptRegexRules: intR });
+                updatePluginSettings('prompt-transformer', { ...pluginSettings['prompt-transformer'], promptReplaceRules: pR, responseReplaceRules: rR });
+              }}
+            />
+          </div>
+          <div className="flex-1 bg-gray-950 flex flex-col">
+            <InspectorPanel requestId={selectedRequestId} onProcessed={() => setSelectedRequestId(null)} />
+          </div>
+        </>
+      )
+    },
+    {
+      id: 'archive',
+      name: 'Network Logs',
+      order: 50,
+      icon: undefined,
+      renderAction: () => (
+        <button 
+          onClick={() => updateCoreSettings(isInterceptRequests, isInterceptResponses, !isLoggingEnabled)}
+          className={`ml-1 w-8 h-8 flex items-center justify-center rounded-full transition-colors cursor-pointer ${isLoggingEnabled ? 'bg-purple-500/20 text-purple-400 hover:bg-purple-500/30' : 'bg-gray-700/50 text-gray-400 hover:bg-gray-700'}`}
+          title={isLoggingEnabled ? "Disable Network Logging" : "Enable Network Logging"}
+        >
+          <div className={`w-2.5 h-2.5 rounded-full ${isLoggingEnabled ? 'bg-purple-400 shadow-[0_0_8px_rgba(168,85,247,0.8)]' : 'bg-gray-500'}`}></div>
+        </button>
+      ),
+      renderContent: () => (
+        <div className="flex-1 overflow-hidden">
+          <ArchiveBrowser />
+        </div>
+      )
+    },
+    {
+      id: 'live',
+      name: 'Live Chat',
+      order: 100,
+      icon: undefined,
+      renderContent: () => <LiveChatPanel />
+    }
+  ].sort((a, b) => a.order - b.order);
+
   return (
     <div className="flex flex-col h-screen bg-gray-950 text-gray-100 font-sans">
       {/* Top Toolbar */}
@@ -113,34 +204,18 @@ export default function App() {
           <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">LlamaProxy</h1>
           
           <div className="flex space-x-2 bg-gray-800 p-1 rounded-lg">
-            <button 
-              onClick={() => setActiveTab('intercept')}
-              className={`px-4 py-2 rounded-md transition-colors ${activeTab === 'intercept' ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-400 hover:text-gray-200'}`}
-            >
-              Interceptor
-            </button>
-            <button 
-              onClick={() => setActiveTab('live')}
-              className={`px-4 py-2 rounded-md transition-colors ${activeTab === 'live' ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-400 hover:text-gray-200'}`}
-            >
-              Live Chat
-            </button>
-            <button 
-              onClick={() => setActiveTab('archive')}
-              className={`px-4 py-2 rounded-md transition-colors flex items-center space-x-2 ${activeTab === 'archive' ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-400 hover:text-gray-200'}`}
-            >
-              <span>Network Logs</span>
-              <div 
-                onClick={(e) => {
-                  e.stopPropagation();
-                  updateSettings(isInterceptRequests, isInterceptResponses, !isLoggingEnabled, interceptRegex, interceptInvalidJson, promptReplaceRegex, promptReplaceWith);
-                }}
-                className={`w-8 h-4 rounded-full transition-colors flex items-center px-0.5 cursor-pointer ml-2 ${isLoggingEnabled ? (activeTab === 'archive' ? 'bg-purple-400' : 'bg-purple-500') : 'bg-gray-600'}`}
-                title="Toggle Network Logging"
-              >
-                <div className={`w-3 h-3 bg-white rounded-full shadow-md transform transition-transform ${isLoggingEnabled ? 'translate-x-4' : 'translate-x-0'}`}></div>
+            {allTabs.map(tab => (
+              <div key={tab.id} className="flex items-center space-x-1 pl-2">
+                <button 
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`px-4 py-2 rounded-md transition-colors flex items-center space-x-2 ${activeTab === tab.id ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-400 hover:text-gray-200'}`}
+                >
+                  {tab.icon && <tab.icon className="w-4 h-4" />}
+                  <span>{tab.name}</span>
+                </button>
+                {tab.renderAction && tab.renderAction()}
               </div>
-            </button>
+            ))}
           </div>
         </div>
         
@@ -183,38 +258,7 @@ export default function App() {
 
       {/* Main Content Area */}
       <main className="flex-1 overflow-hidden flex">
-        {activeTab === 'intercept' ? (
-          <>
-            {/* Left Sidebar: Queue */}
-            <div className="w-80 h-full">
-            <QueuePanel 
-              selectedRequestId={selectedRequestId} 
-              onSelectRequest={setSelectedRequestId}
-              isInterceptRequests={isInterceptRequests}
-              isInterceptResponses={isInterceptResponses}
-              interceptRegex={interceptRegex}
-              interceptInvalidJson={interceptInvalidJson}
-              promptReplaceRegex={promptReplaceRegex}
-              promptReplaceWith={promptReplaceWith}
-              onUpdateSettings={updateSettings}
-            />
-          </div>
-            
-            {/* Main Editor Area */}
-            <div className="flex-1 bg-gray-950 flex flex-col">
-              <InspectorPanel 
-                requestId={selectedRequestId} 
-                onProcessed={() => setSelectedRequestId(null)} 
-              />
-            </div>
-          </>
-        ) : activeTab === 'live' ? (
-          <LiveChatPanel />
-        ) : (
-          <div className="flex-1 overflow-hidden">
-            <ArchiveBrowser />
-          </div>
-        )}
+        {allTabs.find(t => t.id === activeTab)?.renderContent()}
       </main>
       
       <LogViewerModal 

@@ -51,6 +51,7 @@ public class NotificationDTO {
         private String api;
         private String url;
         private String tab;
+        private String streamUrl;
         private boolean autoDismiss = true;
 
         public NotificationAction() {}
@@ -70,6 +71,15 @@ public class NotificationDTO {
             this.autoDismiss = autoDismiss;
         }
 
+        public NotificationAction(String label, String api, String url, String tab, String streamUrl, boolean autoDismiss) {
+            this.label = label;
+            this.api = api;
+            this.url = url;
+            this.tab = tab;
+            this.streamUrl = streamUrl;
+            this.autoDismiss = autoDismiss;
+        }
+
         public String getLabel() { return label; }
         public void setLabel(String label) { this.label = label; }
 
@@ -81,6 +91,9 @@ public class NotificationDTO {
 
         public String getTab() { return tab; }
         public void setTab(String tab) { this.tab = tab; }
+
+        public String getStreamUrl() { return streamUrl; }
+        public void setStreamUrl(String streamUrl) { this.streamUrl = streamUrl; }
 
         public boolean isAutoDismiss() { return autoDismiss; }
         public void setAutoDismiss(boolean autoDismiss) { this.autoDismiss = autoDismiss; }

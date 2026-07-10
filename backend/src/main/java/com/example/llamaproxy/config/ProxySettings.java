@@ -3,20 +3,15 @@ package com.example.llamaproxy.config;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @Component
 public class ProxySettings {
     private boolean interceptRequests = false;
     private boolean interceptResponses = false;
     private boolean loggingEnabled = false;
-    private String interceptRegex = "";
-    
-    private boolean interceptInvalidJson = false;
-    private String promptReplaceRegex = "";
-    private String promptReplaceWith = "";
-
-    @Value("${target.webui.url:}")
-    private String webUiUrl;
-
+    // Core Settings
     public boolean isInterceptRequests() {
         return interceptRequests;
     }
@@ -41,13 +36,8 @@ public class ProxySettings {
         this.loggingEnabled = loggingEnabled;
     }
 
-    public String getInterceptRegex() {
-        return interceptRegex;
-    }
-
-    public void setInterceptRegex(String interceptRegex) {
-        this.interceptRegex = interceptRegex;
-    }
+    @Value("${target.webui.url:}")
+    private String webUiUrl;
 
     public String getWebUiUrl() {
         return webUiUrl;
@@ -55,29 +45,5 @@ public class ProxySettings {
 
     public void setWebUiUrl(String webUiUrl) {
         this.webUiUrl = webUiUrl;
-    }
-
-    public boolean isInterceptInvalidJson() {
-        return interceptInvalidJson;
-    }
-
-    public void setInterceptInvalidJson(boolean interceptInvalidJson) {
-        this.interceptInvalidJson = interceptInvalidJson;
-    }
-
-    public String getPromptReplaceRegex() {
-        return promptReplaceRegex;
-    }
-
-    public void setPromptReplaceRegex(String promptReplaceRegex) {
-        this.promptReplaceRegex = promptReplaceRegex;
-    }
-
-    public String getPromptReplaceWith() {
-        return promptReplaceWith;
-    }
-
-    public void setPromptReplaceWith(String promptReplaceWith) {
-        this.promptReplaceWith = promptReplaceWith;
     }
 }

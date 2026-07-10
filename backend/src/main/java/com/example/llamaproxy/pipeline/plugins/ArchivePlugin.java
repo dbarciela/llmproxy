@@ -12,8 +12,24 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 @Component
-@Order(3)
+@Order(50)
 public class ArchivePlugin implements ProxyPlugin {
+
+    public static class ArchiveSettings {
+        public boolean enabled = true;
+    }
+
+    @Override
+    public String getId() { return "archive"; }
+
+    @Override
+    public String getName() { return "Network Logs Archive"; }
+
+    @Override
+    public String getDescription() { return "Archives all requests and responses."; }
+
+    @Override
+    public Object getDefaultSettings() { return new ArchiveSettings(); }
 
     private final ProxySettings settings;
     private final SessionHistoryRepository repository;

@@ -52,16 +52,26 @@ public class HardwareMonitorService {
                 Process process = new ProcessBuilder("nvidia-smi", "--query-gpu=memory.used,memory.total", "--format=csv,noheader,nounits")
                         .start();
                 BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
-                String line = reader.readLine();
-                if (line != null) {
+                long totalVramUsedMb = 0;
+                long totalVramTotalMb = 0;
+                boolean foundGpu = false;
+                String line;
+                
+                while ((line = reader.readLine()) != null) {
                     String[] parts = line.split(",");
                     if (parts.length >= 2) {
-                        long vramUsedMb = Long.parseLong(parts[0].trim());
-                        long vramTotalMb = Long.parseLong(parts[1].trim());
-                        stats.put("vramUsedGb", String.format("%.1f", vramUsedMb / 1024.0));
-                        stats.put("vramTotalGb", String.format("%.1f", vramTotalMb / 1024.0));
-                        stats.put("vramPercent", Math.round(((double) vramUsedMb / vramTotalMb) * 100.0));
+                        try {
+                            totalVramUsedMb += Long.parseLong(parts[0].trim());
+                            totalVramTotalMb += Long.parseLong(parts[1].trim());
+                            foundGpu = true;
+                        } catch (NumberFormatException ignored) {}
                     }
+                }
+                
+                if (foundGpu) {
+                    stats.put("vramUsedGb", String.format("%.1f", totalVramUsedMb / 1024.0));
+                    stats.put("vramTotalGb", String.format("%.1f", totalVramTotalMb / 1024.0));
+                    stats.put("vramPercent", Math.round(((double) totalVramUsedMb / totalVramTotalMb) * 100.0));
                 }
                 process.waitFor();
             } catch (Exception e) {

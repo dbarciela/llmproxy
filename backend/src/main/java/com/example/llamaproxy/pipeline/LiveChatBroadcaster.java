@@ -88,6 +88,24 @@ public class LiveChatBroadcaster {
             }
         }
     }
+    public void broadcastPluginEvent(String pluginId, String eventType, Object payload) {
+        if (emitters.isEmpty()) return;
+        try {
+            com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+            String jsonPayload = mapper.writeValueAsString(payload);
+            String eventMessage = String.format("{\"pluginId\":\"%s\",\"type\":\"%s\",\"data\":%s}", 
+                pluginId, eventType, jsonPayload);
+            for (SseEmitter emitter : emitters) {
+                try {
+                    emitter.send(SseEmitter.event().name("live-chat").data(eventMessage));
+                } catch (IOException e) {
+                    emitters.remove(emitter);
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
 
     private String escapeJson(String s) {
         if (s == null) return "";

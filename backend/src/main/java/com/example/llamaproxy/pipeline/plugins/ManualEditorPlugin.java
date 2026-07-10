@@ -1,6 +1,7 @@
 package com.example.llamaproxy.pipeline.plugins;
 
 import com.example.llamaproxy.config.ProxySettings;
+import com.example.llamaproxy.config.PluginSettingsManager;
 import com.example.llamaproxy.pipeline.ProxyPlugin;
 import com.example.llamaproxy.pipeline.RequestContext;
 import com.example.llamaproxy.pipeline.ResponseContext;
@@ -14,17 +15,19 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 
 @Component
-@Order(2)
+@Order(40)
 public class ManualEditorPlugin implements ProxyPlugin {
 
-    private final ProxySettings settings;
+    private final PluginSettingsManager settingsManager;
+    private final ProxySettings coreSettings;
     private final com.example.llamaproxy.pipeline.NotificationService notificationService;
     private final ConcurrentHashMap<String, Object> queue = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, CountDownLatch> latches = new ConcurrentHashMap<>();
     private final List<String> order = new ArrayList<>(); // To maintain custom order if needed
 
-    public ManualEditorPlugin(ProxySettings settings, com.example.llamaproxy.pipeline.NotificationService notificationService) {
-        this.settings = settings;
+    public ManualEditorPlugin(PluginSettingsManager settingsManager, ProxySettings coreSettings, com.example.llamaproxy.pipeline.NotificationService notificationService) {
+        this.settingsManager = settingsManager;
+        this.coreSettings = coreSettings;
         this.notificationService = notificationService;
     }
 
@@ -42,22 +45,62 @@ public class ManualEditorPlugin implements ProxyPlugin {
         }
     }
 
+    public static class ManualEditorSettings {
+        public boolean interceptInvalidJson = false;
+        public List<String> interceptRegexRules = new ArrayList<>();
+    }
+
+    @Override
+    public String getId() {
+        return "manual-editor";
+    }
+
+    @Override
+    public String getName() {
+        return "Interceptor";
+    }
+
+    @Override
+    public String getDescription() {
+        return "Intercept and manually edit requests/responses before they reach the LLM or client.";
+    }
+
+    @Override
+    public Object getDefaultSettings() {
+        return new ManualEditorSettings();
+    }
+
     @Override
     public void processRequest(RequestContext context) {
-        if (!settings.isInterceptRequests()) {
+        if (!coreSettings.isInterceptRequests()) {
             return;
         }
         
-        String regex = settings.getInterceptRegex();
-        if (regex != null && !regex.isEmpty()) {
-            try {
-                if (context.getPayload() == null || !java.util.regex.Pattern.compile(regex).matcher(context.getPayload()).find()) {
-                    return; // Skip intercept if regex doesn't match
+        ManualEditorSettings pluginSettings = settingsManager.getSettingsAs(getId(), ManualEditorSettings.class);
+        if (pluginSettings == null) pluginSettings = new ManualEditorSettings();
+        
+        boolean matchesRegex = false;
+        List<String> regexRules = pluginSettings.interceptRegexRules;
+        if (regexRules != null && !regexRules.isEmpty()) {
+            for (String regex : regexRules) {
+                if (regex != null && !regex.trim().isEmpty()) {
+                    try {
+                        if (context.getPayload() != null && java.util.regex.Pattern.compile(regex).matcher(context.getPayload()).find()) {
+                            matchesRegex = true;
+                            break;
+                        }
+                    } catch (Exception e) {
+                        // Invalid regex, skip this one
+                    }
                 }
-            } catch (Exception e) {
-                // Invalid regex, skip intercept to be safe
-                return;
             }
+        }
+        
+        if (!matchesRegex && regexRules != null && !regexRules.isEmpty()) {
+            // Only skip if rules exist but none matched. If no rules exist, we intercept EVERYTHING if interceptRequests is true.
+            // Wait, previously if regex was not null and not empty, it skipped if no match. 
+            // If regex was empty, it intercepted everything.
+            return;
         }
 
         String id = context.getId() + "-req";
@@ -85,14 +128,17 @@ public class ManualEditorPlugin implements ProxyPlugin {
 
     @Override
     public void processResponse(ResponseContext context) {
-        if (!settings.isInterceptResponses()) {
+        if (!coreSettings.isInterceptResponses()) {
             return;
         }
+
+        ManualEditorSettings pluginSettings = settingsManager.getSettingsAs(getId(), ManualEditorSettings.class);
+        if (pluginSettings == null) pluginSettings = new ManualEditorSettings();
 
         boolean shouldIntercept = false;
 
         // 1. Invalid JSON check
-        if (settings.isInterceptInvalidJson() && context.getPayload() != null) {
+        if (pluginSettings.interceptInvalidJson && context.getPayload() != null) {
             try {
                 com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
                 mapper.readTree(context.getPayload());
@@ -104,15 +150,25 @@ public class ManualEditorPlugin implements ProxyPlugin {
 
         // 2. Regex check
         if (!shouldIntercept) {
-            String regex = settings.getInterceptRegex();
-            if (regex != null && !regex.isEmpty()) {
-                try {
-                    if (context.getPayload() != null && java.util.regex.Pattern.compile(regex).matcher(context.getPayload()).find()) {
-                        shouldIntercept = true;
+            List<String> regexRules = pluginSettings.interceptRegexRules;
+            if (regexRules != null && !regexRules.isEmpty()) {
+                boolean matchesRegex = false;
+                for (String regex : regexRules) {
+                    if (regex != null && !regex.trim().isEmpty()) {
+                        try {
+                            if (context.getPayload() != null && java.util.regex.Pattern.compile(regex).matcher(context.getPayload()).find()) {
+                                matchesRegex = true;
+                                break;
+                            }
+                        } catch (Exception e) {
+                            // Invalid regex, skip
+                        }
                     }
-                } catch (Exception e) {
-                    // Invalid regex, skip
                 }
+                shouldIntercept = matchesRegex;
+            } else {
+                // If no regex rules and we want to intercept responses, then we intercept ALL responses
+                shouldIntercept = true;
             }
         }
 

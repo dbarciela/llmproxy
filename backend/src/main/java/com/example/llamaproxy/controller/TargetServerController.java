@@ -187,114 +187,160 @@ public class TargetServerController {
         return emitter;
     }
 
-    @PostMapping("/update-llama")
-    public ResponseEntity<String> updateLlama() {
-        try {
-            // 1. Fetch latest release from GitHub
-            String repo = "ggml-org/llama.cpp";
-            String apiUrl = "https://api.github.com/repos/" + repo + "/releases/latest";
+    @GetMapping(value = "/update-llama-stream", produces = org.springframework.http.MediaType.TEXT_EVENT_STREAM_VALUE)
+    public org.springframework.web.servlet.mvc.method.annotation.SseEmitter updateLlamaStream() {
+        org.springframework.web.servlet.mvc.method.annotation.SseEmitter emitter = new org.springframework.web.servlet.mvc.method.annotation.SseEmitter(Long.MAX_VALUE);
+        com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
 
-            String jsonResponse = restClient.get()
-                    .uri(apiUrl)
-                    .retrieve()
-                    .body(String.class);
+        Thread.startVirtualThread(() -> {
+            try {
+                // Helper to emit progress
+                java.util.function.BiConsumer<String, String> emitProgress = (step, status) -> {
+                    try {
+                        java.util.Map<String, String> payload = new java.util.HashMap<>();
+                        payload.put("step", step);
+                        payload.put("status", status);
+                        emitter.send(org.springframework.web.servlet.mvc.method.annotation.SseEmitter.event().name("progress").data(mapper.writeValueAsString(payload)));
+                    } catch (Exception e) {}
+                };
 
-            if (jsonResponse == null) {
-                return ResponseEntity.internalServerError().body("Failed to fetch release data from GitHub.");
-            }
+                // 0. Kill the server
+                emitProgress.accept("KILLING", "running");
+                java.net.URL url = new java.net.URL(targetServerUrl);
+                int port = url.getPort();
+                if (port != -1) {
+                    killProcessOnPort(port);
+                }
+                Thread.sleep(1000); // Give OS time to release port
+                emitProgress.accept("KILLING", "done");
 
-            com.fasterxml.jackson.databind.JsonNode releaseData = new com.fasterxml.jackson.databind.ObjectMapper().readTree(jsonResponse);
+                // 1. Fetch latest release from GitHub
+                emitProgress.accept("DOWNLOADING", "running");
+                String repo = "ggml-org/llama.cpp";
+                String apiUrl = "https://api.github.com/repos/" + repo + "/releases/latest";
 
-            // 2. Find asset matching regex
-            java.util.regex.Pattern pattern = java.util.regex.Pattern.compile(releaseRegex);
-            String downloadUrl = null;
-            String filename = null;
+                String jsonResponse = restClient.get()
+                        .uri(apiUrl)
+                        .retrieve()
+                        .body(String.class);
 
-            com.fasterxml.jackson.databind.JsonNode assets = releaseData.get("assets");
-            if (assets != null && assets.isArray()) {
-                for (com.fasterxml.jackson.databind.JsonNode asset : assets) {
-                    String assetName = asset.get("name").asText();
-                    if (pattern.matcher(assetName).matches()) {
-                        downloadUrl = asset.get("browser_download_url").asText();
-                        filename = assetName;
-                        break;
+                if (jsonResponse == null) {
+                    throw new RuntimeException("Failed to fetch release data from GitHub.");
+                }
+
+                com.fasterxml.jackson.databind.JsonNode releaseData = mapper.readTree(jsonResponse);
+
+                // 2. Find asset matching regex
+                java.util.regex.Pattern pattern = java.util.regex.Pattern.compile(releaseRegex);
+                String downloadUrl = null;
+                String filename = null;
+
+                com.fasterxml.jackson.databind.JsonNode assets = releaseData.get("assets");
+                if (assets != null && assets.isArray()) {
+                    for (com.fasterxml.jackson.databind.JsonNode asset : assets) {
+                        String assetName = asset.get("name").asText();
+                        if (pattern.matcher(assetName).matches()) {
+                            downloadUrl = asset.get("browser_download_url").asText();
+                            filename = assetName;
+                            break;
+                        }
                     }
                 }
-            }
 
-            if (downloadUrl == null) {
-                return ResponseEntity.status(404).body("Error: Asset matching regex '" + releaseRegex + "' not found in latest release.");
-            }
+                if (downloadUrl == null) {
+                    throw new RuntimeException("Error: Asset matching regex '" + releaseRegex + "' not found in latest release.");
+                }
 
-            // 3. Ensure install directory exists
-            java.io.File installDirectory = new java.io.File(installDir);
-            if (!installDirectory.exists() && !installDirectory.mkdirs()) {
-                return ResponseEntity.internalServerError().body("Failed to create install directory: " + installDir);
-            }
+                // 3. Ensure install directory exists
+                java.io.File installDirectory = new java.io.File(installDir);
+                if (!installDirectory.exists() && !installDirectory.mkdirs()) {
+                    throw new RuntimeException("Failed to create install directory: " + installDir);
+                }
 
-            // 4. Download file
-            java.io.File downloadedZip = new java.io.File(installDirectory, filename);
-            System.out.println("Downloading " + filename + " from " + downloadUrl + "...");
-            
-            byte[] zipBytes = restClient.get()
-                    .uri(downloadUrl)
-                    .retrieve()
-                    .body(byte[].class);
+                // 4. Download file
+                java.io.File downloadedZip = new java.io.File(installDirectory, filename);
+                byte[] zipBytes = restClient.get()
+                        .uri(downloadUrl)
+                        .retrieve()
+                        .body(byte[].class);
 
-            if (zipBytes == null) {
-                return ResponseEntity.internalServerError().body("Failed to download file payload.");
-            }
+                if (zipBytes == null) {
+                    throw new RuntimeException("Failed to download file payload.");
+                }
 
-            java.nio.file.Files.write(downloadedZip.toPath(), zipBytes);
-            System.out.println("Download complete. Extracting to " + installDirectory.getAbsolutePath() + "...");
+                java.nio.file.Files.write(downloadedZip.toPath(), zipBytes);
+                emitProgress.accept("DOWNLOADING", "done");
 
-            // 5. Unzip the file
-            try (java.util.zip.ZipInputStream zis = new java.util.zip.ZipInputStream(new java.io.ByteArrayInputStream(zipBytes))) {
-                java.util.zip.ZipEntry zipEntry = zis.getNextEntry();
-                while (zipEntry != null) {
-                    java.io.File newFile = new java.io.File(installDirectory, zipEntry.getName());
-                    // mitigate zip slip vulnerability
-                    if (!newFile.getCanonicalPath().startsWith(installDirectory.getCanonicalPath() + java.io.File.separator)) {
-                        throw new IOException("Entry is outside of the target dir: " + zipEntry.getName());
-                    }
-                    if (zipEntry.isDirectory()) {
-                        if (!newFile.isDirectory() && !newFile.mkdirs()) {
-                            throw new IOException("Failed to create directory " + newFile);
+                // 5. Unzip the file
+                emitProgress.accept("UNZIPPING", "running");
+                try (java.util.zip.ZipInputStream zis = new java.util.zip.ZipInputStream(new java.io.ByteArrayInputStream(zipBytes))) {
+                    java.util.zip.ZipEntry zipEntry = zis.getNextEntry();
+                    while (zipEntry != null) {
+                        java.io.File newFile = new java.io.File(installDirectory, zipEntry.getName());
+                        if (!newFile.getCanonicalPath().startsWith(installDirectory.getCanonicalPath() + java.io.File.separator)) {
+                            throw new IOException("Entry is outside of the target dir: " + zipEntry.getName());
                         }
-                    } else {
-                        // fix for Windows-created archives
-                        java.io.File parent = newFile.getParentFile();
-                        if (!parent.isDirectory() && !parent.mkdirs()) {
-                            throw new IOException("Failed to create directory " + parent);
-                        }
-                        
-                        try (java.io.FileOutputStream fos = new java.io.FileOutputStream(newFile)) {
-                            byte[] buffer = new byte[8192];
-                            int len;
-                            while ((len = zis.read(buffer)) > 0) {
-                                fos.write(buffer, 0, len);
+                        if (zipEntry.isDirectory()) {
+                            if (!newFile.isDirectory() && !newFile.mkdirs()) {
+                                throw new IOException("Failed to create directory " + newFile);
+                            }
+                        } else {
+                            java.io.File parent = newFile.getParentFile();
+                            if (!parent.isDirectory() && !parent.mkdirs()) {
+                                throw new IOException("Failed to create directory " + parent);
+                            }
+                            try (java.io.FileOutputStream fos = new java.io.FileOutputStream(newFile)) {
+                                byte[] buffer = new byte[8192];
+                                int len;
+                                while ((len = zis.read(buffer)) > 0) {
+                                    fos.write(buffer, 0, len);
+                                }
                             }
                         }
+                        zipEntry = zis.getNextEntry();
                     }
-                    zipEntry = zis.getNextEntry();
+                    zis.closeEntry();
                 }
-                zis.closeEntry();
+                emitProgress.accept("UNZIPPING", "done");
+
+                // 6. Delete downloaded zip to clean up
+                downloadedZip.delete();
+
+                // 7. Save version to version.txt
+                emitProgress.accept("UPDATING_VERSION", "running");
+                String latestTag = releaseData.get("tag_name").asText();
+                java.io.File versionFile = new java.io.File(installDirectory, "version.txt");
+                java.nio.file.Files.writeString(versionFile.toPath(), latestTag);
+                emitProgress.accept("UPDATING_VERSION", "done");
+
+                // 8. Restart Server
+                emitProgress.accept("RESTARTING", "running");
+                ProcessBuilder pb = new ProcessBuilder("cmd.exe", "/c", restartScript);
+                java.io.File scriptFile = new java.io.File(restartScript);
+                if (scriptFile.exists() && scriptFile.getParentFile() != null) {
+                    pb.directory(scriptFile.getParentFile());
+                }
+                pb.redirectErrorStream(true);
+                pb.redirectOutput(new java.io.File("target-server.log"));
+                pb.start();
+                emitProgress.accept("RESTARTING", "done");
+
+                // 9. Done
+                emitProgress.accept("DONE", "done");
+                emitter.complete();
+
+            } catch (Exception e) {
+                try {
+                    java.util.Map<String, String> payload = new java.util.HashMap<>();
+                    payload.put("step", "ERROR");
+                    payload.put("status", "error");
+                    payload.put("message", e.getMessage());
+                    emitter.send(org.springframework.web.servlet.mvc.method.annotation.SseEmitter.event().name("progress").data(mapper.writeValueAsString(payload)));
+                    emitter.completeWithError(e);
+                } catch (Exception ex) {}
             }
-
-            // 6. Delete downloaded zip to clean up
-            downloadedZip.delete();
-
-            // 7. Save version to version.txt
-            String latestTag = releaseData.get("tag_name").asText();
-            java.io.File versionFile = new java.io.File(installDirectory, "version.txt");
-            java.nio.file.Files.writeString(versionFile.toPath(), latestTag);
-
-            return ResponseEntity.ok("Successfully updated llama.cpp to latest version (" + latestTag + ") in " + installDir);
-
-        } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity.internalServerError().body("Error during update: " + e.getMessage());
-        }
+        });
+        return emitter;
     }
 
     @Scheduled(initialDelay = 0, fixedRate = 3600000) // Run on startup and every hour
@@ -339,8 +385,8 @@ public class TargetServerController {
                 
                 String releaseUrl = "https://github.com/" + repo + "/releases/latest";
                 n.setActions(java.util.List.of(
-                    new com.example.llamaproxy.pipeline.NotificationDTO.NotificationAction("Update Now", "/api/proxy/update-llama", null, null, true),
-                    new com.example.llamaproxy.pipeline.NotificationDTO.NotificationAction("Read Release Notes", null, releaseUrl, null, false)
+                    new com.example.llamaproxy.pipeline.NotificationDTO.NotificationAction("Update Now", null, null, null, "/api/proxy/update-llama-stream", true),
+                    new com.example.llamaproxy.pipeline.NotificationDTO.NotificationAction("Read Release Notes", null, releaseUrl, null, null, false)
                 ));
                 notificationService.addNotification(n);
             }

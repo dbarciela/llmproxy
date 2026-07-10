@@ -15,6 +15,10 @@ With LlamaProxy, you can seamlessly intercept, modify, monitor, and archive your
 * **🛠️ Target Server Control & Console**: Monitor the standard output of your `llama.cpp` process in real-time via SSE, kill the server, or launch a configured Web UI directly from the dashboard.
 * **🔄 Background Updates**: Automatically checks for `llama.cpp` updates, downloads, unzips, and restarts the server via an elegant SSE-powered Progress Modal.
 * **🧹 Smart Archive Cleanup**: Automatically detect and purge redundant chat sessions (where smaller sessions are perfect subsets of larger ones) to keep your database clean.
+* **✂️ Context Deduplication**: Seamlessly strip out enormous duplicated text blocks from conversations using a blazing-fast Rabin-Karp algorithm. Saves massive amounts of tokens and VRAM while preserving cache integrity.
+* **⚡ Prompt Transformer**: Automatically transform prompts and responses using Regex rules before they reach the model or client.
+* **💻 Hardware Metrics & Tokenization**: Monitor system VRAM and Context Token Limits in a real-time widget, alongside Time To First Token (TTFT) and Generation Speed (T/s).
+* **🧩 Dynamic Plugin Architecture**: Completely decoupled backend and frontend plugins. Build new UI panels and interceptors without touching the core framework. See the [Plugins Documentation](docs/PLUGINS.md).
 
 ---
 

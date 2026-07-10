@@ -7,11 +7,15 @@ import java.util.List;
 public class ProxyPipeline {
     
     private final List<ProxyPlugin> plugins;
+    private final com.example.llamaproxy.config.PluginSettingsManager pluginSettingsManager;
 
-    public ProxyPipeline(List<ProxyPlugin> plugins) {
-        // Spring will automatically inject all beans implementing ProxyPlugin
-        // We might want to enforce order using @Order on the plugins.
+    public ProxyPipeline(List<ProxyPlugin> plugins, com.example.llamaproxy.config.PluginSettingsManager pluginSettingsManager) {
         this.plugins = plugins;
+        this.pluginSettingsManager = pluginSettingsManager;
+        
+        for (ProxyPlugin plugin : plugins) {
+            pluginSettingsManager.registerDefaultSettings(plugin.getId(), plugin.getDefaultSettings());
+        }
     }
 
     public void processRequest(RequestContext context) {
