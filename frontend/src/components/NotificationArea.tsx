@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { Bell, X, ExternalLink } from 'lucide-react';
+import { Bell, X, ExternalLink, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
+import type { BackgroundTask } from '../hooks/useBackgroundTasks';
 
 export interface NotificationAction {
     label: string;
@@ -35,9 +36,11 @@ const getRelativeTime = (timestamp: number) => {
 interface Props {
     onChangeTab: (tab: any) => void;
     onStartStream?: (url: string) => void;
+    tasks?: BackgroundTask[];
+    onOpenTask?: (id: string) => void;
 }
 
-export function NotificationArea({ onChangeTab, onStartStream }: Props) {
+export function NotificationArea({ onChangeTab, onStartStream, tasks = [], onOpenTask }: Props) {
     const [notifications, setNotifications] = useState<NotificationDTO[]>([]);
     const [isOpen, setIsOpen] = useState(false);
     const panelRef = useRef<HTMLDivElement>(null);
@@ -137,9 +140,9 @@ export function NotificationArea({ onChangeTab, onStartStream }: Props) {
                 className="relative p-2 rounded-full hover:bg-gray-800 transition-colors text-gray-300"
             >
                 <Bell className="w-5 h-5" />
-                {notifications.length > 0 && (
+                {(notifications.length + tasks.length) > 0 && (
                     <span className="absolute top-0 right-0 inline-flex items-center justify-center w-4 h-4 text-[10px] font-bold text-white bg-red-500 rounded-full">
-                        {notifications.length}
+                        {notifications.length + tasks.length}
                     </span>
                 )}
             </button>
@@ -159,7 +162,38 @@ export function NotificationArea({ onChangeTab, onStartStream }: Props) {
                     </div>
                     
                     <div className="max-h-96 overflow-y-auto">
-                        {notifications.length === 0 ? (
+                        {tasks.map(task => {
+                            const latestStep = [...task.steps].reverse().find(s => s.status === 'running' || s.status === 'error') 
+                                || [...task.steps].reverse().find(s => s.status === 'done') 
+                                || task.steps[0];
+                            
+                            return (
+                                <div 
+                                    key={task.id} 
+                                    onClick={() => {
+                                        if (onOpenTask) onOpenTask(task.id);
+                                        setIsOpen(false);
+                                    }}
+                                    className="p-3 border-b border-gray-800/50 bg-purple-900/10 border-l-4 border-purple-500 cursor-pointer hover:bg-purple-900/20 transition-colors"
+                                >
+                                    <div className="flex justify-between items-start">
+                                        <div className="flex flex-col">
+                                            <h4 className="text-sm font-semibold text-purple-200">{task.title}</h4>
+                                            <div className="flex items-center mt-1 space-x-2">
+                                                {task.errorMsg ? <AlertCircle className="w-3 h-3 text-red-400" /> : 
+                                                 task.isDone ? <CheckCircle2 className="w-3 h-3 text-green-400" /> : 
+                                                 <Loader2 className="w-3 h-3 text-purple-400 animate-spin" />}
+                                                <span className="text-xs text-gray-400 capitalize">
+                                                    {task.errorMsg ? 'Error' : task.isDone ? 'Completed' : (latestStep ? latestStep.label.toLowerCase() : 'Initializing...')}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+
+                        {notifications.length === 0 && tasks.length === 0 ? (
                             <div className="p-4 text-center text-gray-500 text-sm">
                                 No new notifications
                             </div>
