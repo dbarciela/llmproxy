@@ -18,4 +18,4 @@ if ($connection) {
 Write-Host "Starting LlamaProxy..." -ForegroundColor Cyan
 $scriptPath = Split-Path -Parent $MyInvocation.MyCommand.Definition
 Set-Location -Path "$scriptPath\backend"
-.\mvnw clean spring-boot:run
+.\mvnw clean spring-boot:run -Dspring-boot.devtools.restart.enabled=false

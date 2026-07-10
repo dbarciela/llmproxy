@@ -8,5 +8,13 @@ export default defineConfig({
     outDir: '../backend/src/main/resources/static',
     emptyOutDir: true,
     chunkSizeWarningLimit: 1500
+  },
+  server: {
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8081',
+        changeOrigin: true
+      }
+    }
   }
 })
