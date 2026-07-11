@@ -2,28 +2,62 @@ package com.example.llamaproxy.pipeline;
 
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
-import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.Map;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.LinkedBlockingQueue;
 
 @Component
 public class LiveChatBroadcaster {
 
     private static final ObjectMapper mapper = new ObjectMapper();
 
-    private final List<SseEmitter> emitters = new CopyOnWriteArrayList<>();
+    // Mapeamento de Emitters para as suas respetivas filas e threads
+    private final Map<SseEmitter, ClientWorker> clients = new ConcurrentHashMap<>();
+
+    private record ClientWorker(BlockingQueue<String> queue, Thread thread) {}
 
     public SseEmitter subscribe() {
-        SseEmitter emitter = new SseEmitter(Long.MAX_VALUE); // infinite timeout
-        emitters.add(emitter);
+        SseEmitter emitter = new SseEmitter(Long.MAX_VALUE);
+        BlockingQueue<String> queue = new LinkedBlockingQueue<>(); // Fila ilimitada
         
-        emitter.onCompletion(() -> emitters.remove(emitter));
-        emitter.onTimeout(() -> emitters.remove(emitter));
-        emitter.onError(e -> emitters.remove(emitter));
+        // Inicia UMA única Virtual Thread dedicada exclusivamente a este cliente
+        Thread workerThread = Thread.startVirtualThread(() -> {
+            try {
+                while (!Thread.currentThread().isInterrupted()) {
+                    // O take() bloqueia a Virtual Thread (sem custo de CPU) até haver um chunk novo
+                    String eventMessage = queue.take(); 
+                    emitter.send(SseEmitter.event().name("live-chat").data(eventMessage));
+                }
+            } catch (InterruptedException | IOException e) {
+                removeClient(emitter);
+            }
+        });
+
+        clients.put(emitter, new ClientWorker(queue, workerThread));
+
+        emitter.onCompletion(() -> removeClient(emitter));
+        emitter.onTimeout(() -> removeClient(emitter));
+        emitter.onError(e -> removeClient(emitter));
         
         return emitter;
+    }
+
+    private void removeClient(SseEmitter emitter) {
+        ClientWorker worker = clients.remove(emitter);
+        if (worker != null) {
+            worker.thread().interrupt(); // Encerra a Virtual Thread se o cliente desligar
+        }
+    }
+
+    private void pushEventToAll(String eventMessage) {
+        if (clients.isEmpty()) return;
+        for (ClientWorker worker : clients.values()) {
+            worker.queue().offer(eventMessage);
+        }
     }
 
     public void broadcastRequest(String id, String payload) {
@@ -39,103 +73,45 @@ public class LiveChatBroadcaster {
     }
 
     public void broadcastNotificationData(String jsonPayload) {
-        if (emitters.isEmpty()) return;
-        
         String eventMessage = String.format("{\"id\":\"%s\",\"type\":\"%s\",\"data\":%s}", 
             java.util.UUID.randomUUID().toString(), "NOTIFICATION", jsonPayload);
-        
-        for (SseEmitter emitter : emitters) {
-            Thread.startVirtualThread(() -> {
-                try {
-                    emitter.send(SseEmitter.event().name("live-chat").data(eventMessage));
-                } catch (IOException e) {
-                    emitters.remove(emitter);
-                }
-            });
-        }
+        pushEventToAll(eventMessage);
     }
 
     public void broadcastHardware(String jsonPayload) {
-        if (emitters.isEmpty()) return;
         String eventMessage = String.format("{\"id\":\"%s\",\"type\":\"%s\",\"data\":%s}", 
             java.util.UUID.randomUUID().toString(), "HARDWARE", jsonPayload);
-        for (SseEmitter emitter : emitters) {
-            Thread.startVirtualThread(() -> {
-                try {
-                    emitter.send(SseEmitter.event().name("live-chat").data(eventMessage));
-                } catch (IOException e) {
-                    emitters.remove(emitter);
-                }
-            });
-        }
+        pushEventToAll(eventMessage);
     }
 
     public void broadcastContextLimit(int limit) {
-        if (emitters.isEmpty()) return;
         String eventMessage = String.format("{\"id\":\"%s\",\"type\":\"%s\",\"data\":%d}", 
             java.util.UUID.randomUUID().toString(), "CONTEXT_LIMIT", limit);
-        for (SseEmitter emitter : emitters) {
-            Thread.startVirtualThread(() -> {
-                try {
-                    emitter.send(SseEmitter.event().name("live-chat").data(eventMessage));
-                } catch (IOException e) {
-                    emitters.remove(emitter);
-                }
-            });
-        }
+        pushEventToAll(eventMessage);
     }
 
     public void broadcastMetrics(String id, String metricsJson) {
-        if (emitters.isEmpty()) return;
         String eventMessage = String.format("{\"id\":\"%s\",\"type\":\"%s\",\"data\":%s}", 
             id, "METRICS", metricsJson);
-        for (SseEmitter emitter : emitters) {
-            Thread.startVirtualThread(() -> {
-                try {
-                    emitter.send(SseEmitter.event().name("live-chat").data(eventMessage));
-                } catch (IOException e) {
-                    emitters.remove(emitter);
-                }
-            });
-        }
+        pushEventToAll(eventMessage);
     }
+    
     public void broadcastPluginEvent(String pluginId, String eventType, Object payload) {
-        if (emitters.isEmpty()) return;
         try {
-            com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
             String jsonPayload = mapper.writeValueAsString(payload);
             String eventMessage = String.format("{\"pluginId\":\"%s\",\"type\":\"%s\",\"data\":%s}", 
                 pluginId, eventType, jsonPayload);
-            for (SseEmitter emitter : emitters) {
-                Thread.startVirtualThread(() -> {
-                    try {
-                        emitter.send(SseEmitter.event().name("live-chat").data(eventMessage));
-                    } catch (IOException e) {
-                        emitters.remove(emitter);
-                    }
-                });
-            }
+            pushEventToAll(eventMessage);
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
     private void broadcast(String id, String type, String data) {
-        if (emitters.isEmpty()) return;
-        
         try {
             String safeData = mapper.writeValueAsString(data);
             String eventMessage = String.format("{\"id\":\"%s\",\"type\":\"%s\",\"data\":%s}", id, type, safeData);
-            
-            for (SseEmitter emitter : emitters) {
-                Thread.startVirtualThread(() -> {
-                    try {
-                        emitter.send(SseEmitter.event().name("live-chat").data(eventMessage));
-                    } catch (IOException e) {
-                        emitters.remove(emitter);
-                    }
-                });
-            }
+            pushEventToAll(eventMessage);
         } catch (Exception e) {
             e.printStackTrace();
         }
