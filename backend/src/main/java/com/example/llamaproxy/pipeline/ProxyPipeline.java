@@ -8,6 +8,7 @@ public class ProxyPipeline {
     
     private List<ProxyPlugin> plugins;
     private final com.example.llamaproxy.config.PluginSettingsManager pluginSettingsManager;
+    private final java.util.concurrent.BlockingQueue<Runnable> asyncQueue = new java.util.concurrent.LinkedBlockingQueue<>();
 
     public ProxyPipeline(List<ProxyPlugin> plugins, com.example.llamaproxy.config.PluginSettingsManager pluginSettingsManager) {
         // Create a mutable copy of the injected list, which is initially sorted by @Order
@@ -17,6 +18,21 @@ public class ProxyPipeline {
         for (ProxyPlugin plugin : this.plugins) {
             pluginSettingsManager.registerDefaultSettings(plugin.getId(), plugin.getDefaultSettings());
         }
+
+        Thread.startVirtualThread(() -> {
+            try {
+                while (!Thread.currentThread().isInterrupted()) {
+                    Runnable task = asyncQueue.take();
+                    try {
+                        task.run();
+                    } catch (Exception e) {
+                        e.printStackTrace(); // Prevent one bad plugin from crashing the worker
+                    }
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        });
     }
 
     public List<ProxyPlugin> getPlugins() {
@@ -44,15 +60,29 @@ public class ProxyPipeline {
             if (context.isDropped()) {
                 break;
             }
-            plugin.processRequest(context);
+            if (plugin.isAsync()) {
+                asyncQueue.offer(() -> plugin.processRequest(context));
+            } else {
+                plugin.processRequest(context);
+            }
         }
     }
 
     public void processResponse(ResponseContext context) {
-        // For response, we generally run plugins in the same order, or reverse order.
-        // We'll run them in the same order for now.
         for (ProxyPlugin plugin : plugins) {
-            plugin.processResponse(context);
+            if (plugin.isAsync()) {
+                asyncQueue.offer(() -> plugin.processResponse(context));
+            } else {
+                plugin.processResponse(context);
+            }
+        }
+    }
+
+    public void processChunk(String reqId, String chunk) {
+        for (ProxyPlugin plugin : plugins) {
+            if (plugin.isAsync()) {
+                asyncQueue.offer(() -> plugin.processChunk(reqId, chunk));
+            }
         }
     }
 }

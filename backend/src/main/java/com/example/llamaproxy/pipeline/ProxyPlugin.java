@@ -50,6 +50,17 @@ public interface ProxyPlugin {
     default boolean isBuffering() { return true; }
 
     /**
+     * Indicates if this plugin is asynchronous (doesn't block the proxy pipeline).
+     * Async plugins receive events in a background queue.
+     */
+    default boolean isAsync() { return false; }
+
+    /**
+     * Process a real-time chunk during streaming. Primarily used by AsyncPlugins (e.g. LiveChat).
+     */
+    default void processChunk(String reqId, String chunk) {}
+
+    /**
      * Process the response after it is received from the target server.
      */
     void processResponse(ResponseContext context);

@@ -71,6 +71,7 @@ public class SettingsController {
             metadata.put("uiTabName", plugin.getUiTabName());
             metadata.put("hasUiToggle", plugin.hasUiToggle());
             metadata.put("isBuffering", plugin.isBuffering());
+            metadata.put("isAsync", plugin.isAsync());
             metadata.put("description", plugin.getDescription());
             metadataList.add(metadata);
         }

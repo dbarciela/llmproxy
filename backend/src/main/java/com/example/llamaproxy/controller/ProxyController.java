@@ -67,7 +67,6 @@ public class ProxyController {
         }
 
         RequestContext reqCtx = new RequestContext(method, uri, headers, payload);
-        liveChatBroadcaster.broadcastRequest(reqCtx.getId(), payload);
         
         // 1. Run Request Pipeline
         pipeline.processRequest(reqCtx);
@@ -121,7 +120,7 @@ public class ProxyController {
                             
                             // Broadcast live chunk
                             String chunk = new String(buffer, 0, bytesRead, StandardCharsets.UTF_8);
-                            liveChatBroadcaster.broadcastChunk(reqCtx.getId(), chunk);
+                            pipeline.processChunk(reqCtx.getId(), chunk);
                             
                             try {
                                 response.getOutputStream().write(buffer, 0, bytesRead);
@@ -134,8 +133,6 @@ public class ProxyController {
                     String finalResponsePayload = aggregatedBody.toString(StandardCharsets.UTF_8);
                     
                     extractAndBroadcastMetrics(reqCtx.getId(), finalResponsePayload, startTime, ttft[0]);
-                    
-                    liveChatBroadcaster.broadcastDone(reqCtx.getId(), finalResponsePayload);
                     
                     ResponseContext resCtx = new ResponseContext(reqCtx, clientResponse.getStatusCode().value(), respHeaders, finalResponsePayload);
                     pipeline.processResponse(resCtx);
@@ -165,8 +162,7 @@ public class ProxyController {
                     if (!reqCtx.isDropped()) {
                         byte[] finalBytes = resCtx.getPayload().getBytes(StandardCharsets.UTF_8);
                         
-                        liveChatBroadcaster.broadcastChunk(reqCtx.getId(), resCtx.getPayload());
-                        liveChatBroadcaster.broadcastDone(reqCtx.getId(), resCtx.getPayload());
+                        pipeline.processChunk(reqCtx.getId(), resCtx.getPayload());
                         
                         // Set headers, overriding Content-Length with the new accurate length
                         respHeaders.forEach((key, values) -> {
@@ -185,7 +181,7 @@ public class ProxyController {
                             // Client disconnected
                         }
                     } else {
-                        liveChatBroadcaster.broadcastDone(reqCtx.getId(), "");
+                        // The LiveChatPlugin handles broadcastDone("") when dropped in its processResponse
                     }
                 }
                 

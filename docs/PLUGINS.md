@@ -3,7 +3,7 @@
 O LlamaProxy possui uma arquitetura 100% modular. Podes adicionar novos comportamentos de interceção, modificação ou análise criando **Plugins**.
 
 Um Plugin completo é composto por:
-1. **Backend**: Uma classe Java que implementa a interface `BufferingPlugin` ou `StreamingPlugin`.
+1. **Backend**: Uma classe Java que implementa a interface `AsyncPlugin`, `BufferingPlugin` ou `StreamingPlugin`.
 2. **Frontend** (Opcional): Um componente React `.tsx` que é injetado dinamicamente na Interface Gráfica.
 
 ---
@@ -12,9 +12,10 @@ Um Plugin completo é composto por:
 
 Todos os plugins no LlamaProxy processam pedidos (Requests) e respostas (Responses) em formato "pipeline" (corrente de execução).
 
-Podes implementar uma de duas interfaces base, dependendo da necessidade do teu plugin:
-- **`BufferingPlugin`**: Recebe o payload do request/response como uma `String` completa. Tem maior impacto na memória para payloads gigantescos (ex: > 50MB), mas é fundamental se o teu plugin precisar de analisar ou editar o documento como um todo (ex: Manipulação de JSON complexa, Deduplicação por Sliding Window, Editores Manuais). Os plugins de Buffering recebem um aviso laranja no ecrã de Configuração ⚠️.
-- **`StreamingPlugin`**: Recebe o payload como um `InputStream` e escreve num `OutputStream`. Processa dados *on-the-fly* sem manter tudo em memória. Ideal para substituições em streaming (ex: expressões regulares simples linha-a-linha).
+Podes implementar uma de três interfaces base, dependendo da necessidade do teu plugin:
+- **`AsyncPlugin`**: Executa numa *Virtual Thread* dedicada em background. Recebe os dados, mas o processamento decorre fora do *hot-path* do proxy. Zero impacto de bloqueio para o utilizador. Ideal para Live Chat, Logs, Telemétrica. Recebem o selo **🔄 ASYNC** no UI.
+- **`BufferingPlugin`**: Recebe o payload do request/response como uma `String` completa. Tem maior impacto na memória para payloads gigantescos (ex: > 50MB), mas é fundamental se o teu plugin precisar de analisar ou editar o documento como um todo (ex: Manipulação de JSON complexa, Deduplicação por Sliding Window, Editores Manuais). Recebem o selo **⚠️ BUFFERING** no UI.
+- **`StreamingPlugin`**: Processa dados *on-the-fly* através de streams. Zero impacto na memória. Recebem o selo **⚡ STREAMING** no UI.
 
 Cria uma classe na pasta `backend/src/main/java/com/example/llamaproxy/pipeline/plugins/`.
 

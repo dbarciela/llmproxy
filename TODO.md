@@ -42,8 +42,9 @@ Este documento lista as funcionalidades planeadas para o LlamaProxy, focadas em 
 - [ ] **Processamento Integral vs. Streams:** A atual interceção e processamento no `RequestContext` converte pacotes massivos (megabytes de contexto/ficheiros injetados) numa única `String` na heap. Para resolver este estrangulamento de RAM, a arquitetura deve ser bifurcada:
   - **Buffering Plugins:** Precisam de ler a `String` total para memória (ex: `ManualEditorPlugin`, que precisa de apresentar tudo no ecrã para o utilizador editar, ou formatação de JSON que re-estrutura o *payload* inteiro).
   - **Streaming Plugins:** Processam o payload linha-a-linha ou *chunk-a-chunk* encadeando *InputStreams* e *OutputStreams* (ex: `FormatFixerPlugin` usando Expressões Regulares simples ou find & replace leve). Têm impacto zero na memória.
-  - **Passo 1 (Concluído):** Adição do método `default boolean isBuffering() { return true; }` na interface `ProxyPlugin`.
+  - **Async Plugins:** Correm numa fila de Virtual Threads isolada. Recebem todo o tipo de pacotes mas o seu output é descartado. Usados para *Read-Only* sem impacto na latência (ex: Live Chat, Database Logs).
+  - **Passo 1 (Concluído):** Adição das interfaces base `AsyncPlugin`, `BufferingPlugin` e `StreamingPlugin`, e a refatorização do Live Chat e Network Logs.
   - **Próximos Passos:** 
-    - Modificar o `RequestContext` para expor o `InputStream`.
-    - Atualizar a interface do Frontend para exibir um alerta laranja ⚠️ junto aos plugins que são `isBuffering() = true`, educando o utilizador sobre o impacto no consumo de RAM para contextos de conversação gigantescos.
+    - Modificar o `RequestContext` para expor o `InputStream` para os plugins que sejam streaming puros.
+    - Atualizar a interface do Frontend para exibir as *badges* ⚡ (Streaming), 🔄 (Async) e ⚠️ (Buffering) - *Concluído!*
     - Converter o `FormatFixerPlugin` para Streaming puro, deixando o `ContextDeduplicatorPlugin` (sliding window complexa) e o `ManualEditorPlugin` como Buffering.

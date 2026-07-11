@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-pangea/dnd';
-import { Settings, GripVertical, Shield, Activity, Layers, Type, Eye, EyeOff, AlertTriangle } from 'lucide-react';
+import { Settings, GripVertical, Shield, Activity, Layers, Type, Eye, EyeOff, AlertTriangle, RefreshCw, Zap } from 'lucide-react';
 
 interface PluginMetadata {
   id: string;
@@ -9,6 +9,7 @@ interface PluginMetadata {
   hasUiToggle: boolean;
   description: string;
   isBuffering?: boolean;
+  isAsync?: boolean;
 }
 
 export function ConfigurationScreen({ globalPlugins, updatePluginOrder, hiddenTabs, toggleTabHidden }: { 
@@ -108,9 +109,17 @@ export function ConfigurationScreen({ globalPlugins, updatePluginOrder, hiddenTa
                           <div className="flex-1">
                             <h4 className="font-medium text-gray-200 flex items-center">
                               {plugin.name}
-                              {plugin.isBuffering && (
+                              {plugin.isAsync ? (
+                                <span className="ml-2 px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-400 text-[10px] font-bold tracking-wider flex items-center uppercase" title="Async Plugin: Runs out of band without blocking the proxy.">
+                                  <RefreshCw className="w-3 h-3 mr-1" /> Async
+                                </span>
+                              ) : plugin.isBuffering ? (
                                 <span className="ml-2 px-2 py-0.5 rounded-full bg-orange-500/20 text-orange-400 text-[10px] font-bold tracking-wider flex items-center uppercase" title="Buffering Plugin: Degrades performance for contexts > 50MB">
                                   <AlertTriangle className="w-3 h-3 mr-1" /> Buffering
+                                </span>
+                              ) : (
+                                <span className="ml-2 px-2 py-0.5 rounded-full bg-green-500/20 text-green-400 text-[10px] font-bold tracking-wider flex items-center uppercase" title="Streaming Plugin: Zero memory overhead processing.">
+                                  <Zap className="w-3 h-3 mr-1" /> Streaming
                                 </span>
                               )}
                             </h4>
