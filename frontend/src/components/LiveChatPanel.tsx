@@ -119,25 +119,6 @@ export default function LiveChatPanel() {
   return (
     <div className="flex-1 bg-gray-950 flex flex-col overflow-hidden relative">
       <div className="absolute top-4 right-6 z-10 flex space-x-2">
-        {metrics && (
-          <div className="flex items-center space-x-3 text-xs text-gray-400 bg-gray-900 px-3 py-1.5 rounded-lg border border-gray-800">
-            <span title="Time To First Token">TTFT: {metrics.ttft}ms</span>
-            <div className="w-px h-3 bg-gray-700"></div>
-            <span title="Tokens per Second">{metrics.tokensPerSec.toFixed(1)} t/s</span>
-            {metrics.totalTokens > 0 && (
-              <>
-                <div className="w-px h-3 bg-gray-700"></div>
-                <span 
-                  title="Context Cost" 
-                  className={contextLimit && metrics.totalTokens > contextLimit * 0.85 ? 'text-red-400 font-bold' : ''}
-                >
-                  {contextLimit && metrics.totalTokens > contextLimit * 0.85 && '🚨 '}
-                  Ctx: {metrics.totalTokens} {contextLimit ? `/ ${contextLimit}` : ''}
-                </span>
-              </>
-            )}
-          </div>
-        )}
         <label className="flex items-center space-x-2 text-xs text-gray-400 bg-gray-900 px-3 py-1.5 rounded-lg border border-gray-800 cursor-pointer hover:text-gray-200">
           <input 
             type="checkbox" 
@@ -174,6 +155,36 @@ export default function LiveChatPanel() {
           <ChatViewer messages={messages as any} collapseXmlMode={collapseXmlMode} />
         )}
       </div>
+
+      {/* Floating Metrics Widget (Bottom Right) */}
+      {metrics && (
+        <div className="absolute bottom-6 right-8 z-20 flex items-center space-x-4 text-sm text-gray-300 bg-gray-900/90 backdrop-blur-md px-4 py-2.5 rounded-xl border border-gray-700 shadow-2xl">
+          <div className="flex flex-col">
+            <span className="text-[10px] text-gray-500 uppercase font-bold tracking-wider mb-0.5">Speed</span>
+            <span title="Tokens per Second" className="font-mono text-purple-400">{metrics.tokensPerSec.toFixed(1)} t/s</span>
+          </div>
+          <div className="w-px h-8 bg-gray-700"></div>
+          <div className="flex flex-col">
+            <span className="text-[10px] text-gray-500 uppercase font-bold tracking-wider mb-0.5">Latency</span>
+            <span title="Time To First Token" className="font-mono text-blue-400">{metrics.ttft}ms</span>
+          </div>
+          {metrics.totalTokens > 0 && (
+            <>
+              <div className="w-px h-8 bg-gray-700"></div>
+              <div className="flex flex-col">
+                <span className="text-[10px] text-gray-500 uppercase font-bold tracking-wider mb-0.5">Context</span>
+                <span 
+                  title="Context Cost" 
+                  className={`font-mono ${contextLimit && metrics.totalTokens > contextLimit * 0.85 ? 'text-red-400 font-bold animate-pulse' : 'text-green-400'}`}
+                >
+                  {contextLimit && metrics.totalTokens > contextLimit * 0.85 && '🚨 '}
+                  {metrics.totalTokens.toLocaleString()} {contextLimit ? `/ ${contextLimit.toLocaleString()}` : ''}
+                </span>
+              </div>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }
