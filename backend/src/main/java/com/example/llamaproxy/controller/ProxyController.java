@@ -98,7 +98,7 @@ public class ProxyController {
                 response.setStatus(clientResponse.getStatusCode().value());
                 HttpHeaders respHeaders = clientResponse.getHeaders();
                 
-                if (!settings.isInterceptResponses()) {
+                if (!pipeline.requiresResponseBuffering()) {
                     // STREAMING MODE
                     respHeaders.forEach((key, values) -> {
                         if (!key.equalsIgnoreCase(HttpHeaders.TRANSFER_ENCODING)) {

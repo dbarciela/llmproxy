@@ -1,6 +1,4 @@
 import { useState, useEffect } from 'react';
-import { QueuePanel } from './components/QueuePanel';
-import { InspectorPanel } from './components/InspectorPanel';
 import { ArchiveBrowser } from './components/ArchiveBrowser';
 import { LogViewerModal } from './components/LogViewerModal';
 import { NotificationArea } from './components/NotificationArea';
@@ -12,12 +10,10 @@ import { Activity, ServerCrash } from 'lucide-react';
 import { HardwareWidget } from './components/HardwareWidget';
 
 export default function App() {
-  const [isInterceptRequests, setIsInterceptRequests] = useState(false);
-  const [isInterceptResponses, setIsInterceptResponses] = useState(false);
   const [isLoggingEnabled, setIsLoggingEnabled] = useState(false);
   const [serverHealthy, setServerHealthy] = useState(false);
-  const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<string>('live-chat-plugin');
+  const [activeTab, setActiveTab] = useState<string>('');
+  const [defaultTab, setDefaultTab] = useState<string>('live-chat-plugin');
   const [isLogsOpen, setIsLogsOpen] = useState(false);
   
   const { tasks, startTask, minimizeTask, openTask, closeTask } = useBackgroundTasks();
@@ -56,9 +52,9 @@ export default function App() {
       fetch('/api/proxy/settings').then(res => res.json()),
       fetch('/api/proxy/target-url').then(res => res.text())
     ]).then(([settingsData, url]) => {
-      setIsInterceptRequests(settingsData.interceptRequests);
-      setIsInterceptResponses(settingsData.interceptResponses);
       setIsLoggingEnabled(settingsData.loggingEnabled);
+      setDefaultTab(settingsData.defaultTab || 'live-chat-plugin');
+      setActiveTab(settingsData.defaultTab || 'live-chat-plugin');
       setPluginSettings(settingsData.plugins || {});
       setTargetUrl(url);
       setWebUiUrl(settingsData.webUiUrl || url.replace('/v1', ''));
@@ -66,12 +62,8 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    const tabNames: Record<string, string> = {
-      'intercept': 'Interceptor',
-      'live-chat-plugin': 'Live Chat',
-      'archive': 'Network Logs'
-    };
-    document.title = `LlamaProxy - ${tabNames[activeTab] || 'Home'}`;
+    const activePlugin = globalPlugins.find(p => p.id === activeTab);
+    document.title = `LlamaProxy - ${activePlugin ? activePlugin.uiTabName : 'Home'}`;
 
     fetch('/api/proxy/ui/active-tab', {
       method: 'POST',
@@ -90,16 +82,12 @@ export default function App() {
     return () => clearInterval(interval);
   }, []);
 
-  const updateCoreSettings = (req: boolean, res: boolean, logging: boolean) => {
-    setIsInterceptRequests(req);
-    setIsInterceptResponses(res);
+  const updateCoreSettings = (logging: boolean) => {
     setIsLoggingEnabled(logging);
     fetch('/api/proxy/settings', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ 
-        interceptRequests: req, 
-        interceptResponses: res, 
         loggingEnabled: logging
       })
     }).catch(err => console.error("Error updating settings:", err));
@@ -127,54 +115,7 @@ export default function App() {
 
   const allTabs = [
     ...globalPlugins.map((p, idx) => {
-      if (p.id === 'manual-editor') {
-        return {
-          id: p.id,
-          name: p.uiTabName,
-          order: idx * 10,
-          icon: undefined,
-          renderAction: p.hasUiToggle ? () => {
-            const isAnyInterceptEnabled = isInterceptRequests || isInterceptResponses;
-            return (
-              <button 
-                onClick={() => {
-                  if (!isAnyInterceptEnabled) {
-                    updateCoreSettings(true, true, isLoggingEnabled);
-                  } else {
-                    updateCoreSettings(false, false, isLoggingEnabled);
-                  }
-                }}
-                className={`ml-1 w-8 h-8 flex items-center justify-center rounded-full transition-colors cursor-pointer ${isAnyInterceptEnabled ? 'bg-orange-500/20 text-orange-400 hover:bg-orange-500/30' : 'bg-gray-700/50 text-gray-400 hover:bg-gray-700'}`}
-                title={isAnyInterceptEnabled ? "Disable All Interceptions" : "Enable All Interceptions"}
-              >
-                <div className={`w-2.5 h-2.5 rounded-full ${isAnyInterceptEnabled ? 'bg-orange-400 shadow-[0_0_8px_rgba(249,115,22,0.8)]' : 'bg-gray-500'}`}></div>
-              </button>
-            );
-          } : undefined,
-          renderContent: () => (
-            <>
-              <div className="w-80 h-full">
-                <QueuePanel 
-                  selectedRequestId={selectedRequestId} 
-                  onSelectRequest={setSelectedRequestId}
-                  isInterceptRequests={isInterceptRequests}
-                  isInterceptResponses={isInterceptResponses}
-                  interceptInvalidJson={pluginSettings['manual-editor']?.interceptInvalidJson || false}
-                  interceptRegexRules={pluginSettings['manual-editor']?.interceptRegexRules || []}
-                  onUpdateSettings={(req, res, log, invalid, intR) => {
-                    updateCoreSettings(req, res, log);
-                    updatePluginSettings('manual-editor', { ...pluginSettings['manual-editor'], interceptInvalidJson: invalid, interceptRegexRules: intR });
-                  }}
-                />
-              </div>
-              <div className="flex-1 bg-gray-950 flex flex-col">
-                <InspectorPanel requestId={selectedRequestId} onProcessed={() => setSelectedRequestId(null)} />
-              </div>
-            </>
-          )
-        };
-      }
-      
+
       if (p.id === 'archive') {
         return {
           id: p.id,
@@ -183,7 +124,7 @@ export default function App() {
           icon: undefined,
           renderAction: p.hasUiToggle ? () => (
             <button 
-              onClick={() => updateCoreSettings(isInterceptRequests, isInterceptResponses, !isLoggingEnabled)}
+              onClick={() => updateCoreSettings(!isLoggingEnabled)}
               className={`ml-1 w-8 h-8 flex items-center justify-center rounded-full transition-colors cursor-pointer ${isLoggingEnabled ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30' : 'bg-gray-700/50 text-gray-400 hover:bg-gray-700'}`}
               title={isLoggingEnabled ? "Disable Network Logging" : "Enable Network Logging"}
             >
@@ -309,6 +250,15 @@ export default function App() {
             }}
             hiddenTabs={hiddenTabs}
             toggleTabHidden={toggleTabHidden}
+            defaultTab={defaultTab}
+            updateDefaultTab={(tabId) => {
+              setDefaultTab(tabId);
+              fetch('/api/proxy/settings', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ defaultTab: tabId })
+              });
+            }}
           />
         ) : (
           allTabs.find(t => t.id === activeTab)?.renderContent?.() || (

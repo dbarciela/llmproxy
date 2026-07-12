@@ -8,24 +8,15 @@ import java.util.List;
 
 @Component
 public class ProxySettings {
-    private boolean interceptRequests = false;
-    private boolean interceptResponses = false;
     private boolean loggingEnabled = false;
-    // Core Settings
-    public boolean isInterceptRequests() {
-        return interceptRequests;
+    private String defaultTab = "live-chat-plugin";
+
+    public String getDefaultTab() {
+        return defaultTab;
     }
 
-    public void setInterceptRequests(boolean interceptRequests) {
-        this.interceptRequests = interceptRequests;
-    }
-
-    public boolean isInterceptResponses() {
-        return interceptResponses;
-    }
-
-    public void setInterceptResponses(boolean interceptResponses) {
-        this.interceptResponses = interceptResponses;
+    public void setDefaultTab(String defaultTab) {
+        this.defaultTab = defaultTab;
     }
 
     public boolean isLoggingEnabled() {

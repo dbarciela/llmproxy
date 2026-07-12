@@ -24,8 +24,7 @@ public class SettingsController {
     @GetMapping("/settings")
     public Map<String, Object> getSettings() {
         Map<String, Object> combined = new HashMap<>();
-        combined.put("interceptRequests", settings.isInterceptRequests());
-        combined.put("interceptResponses", settings.isInterceptResponses());
+        combined.put("defaultTab", settings.getDefaultTab());
         combined.put("loggingEnabled", settings.isLoggingEnabled());
         combined.put("webUiUrl", settings.getWebUiUrl());
         
@@ -39,11 +38,8 @@ public class SettingsController {
     public void updateSettings(@RequestBody Map<String, Object> newSettingsMap) {
         com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
         JsonNode newSettings = mapper.valueToTree(newSettingsMap);
-        if (newSettings.has("interceptRequests")) {
-            settings.setInterceptRequests(newSettings.get("interceptRequests").asBoolean());
-        }
-        if (newSettings.has("interceptResponses")) {
-            settings.setInterceptResponses(newSettings.get("interceptResponses").asBoolean());
+        if (newSettings.has("defaultTab")) {
+            settings.setDefaultTab(newSettings.get("defaultTab").asText());
         }
         if (newSettings.has("loggingEnabled")) {
             settings.setLoggingEnabled(newSettings.get("loggingEnabled").asBoolean());

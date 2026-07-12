@@ -85,4 +85,13 @@ public class ProxyPipeline {
             }
         }
     }
+
+    public boolean requiresResponseBuffering() {
+        com.example.llamaproxy.pipeline.plugins.ManualEditorPlugin.ManualEditorSettings manualSettings = 
+            pluginSettingsManager.getSettingsAs("manual-editor", com.example.llamaproxy.pipeline.plugins.ManualEditorPlugin.ManualEditorSettings.class);
+        if (manualSettings != null && manualSettings.enabled) {
+            return true;
+        }
+        return false;
+    }
 }

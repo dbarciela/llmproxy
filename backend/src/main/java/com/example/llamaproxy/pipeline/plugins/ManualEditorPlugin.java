@@ -19,15 +19,13 @@ import java.util.concurrent.CountDownLatch;
 public class ManualEditorPlugin implements BufferingPlugin {
 
     private final PluginSettingsManager settingsManager;
-    private final ProxySettings coreSettings;
     private final com.example.llamaproxy.pipeline.NotificationService notificationService;
     private final ConcurrentHashMap<String, Object> queue = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, CountDownLatch> latches = new ConcurrentHashMap<>();
     private final List<String> order = new ArrayList<>(); // To maintain custom order if needed
 
-    public ManualEditorPlugin(PluginSettingsManager settingsManager, ProxySettings coreSettings, com.example.llamaproxy.pipeline.NotificationService notificationService) {
+    public ManualEditorPlugin(PluginSettingsManager settingsManager, com.example.llamaproxy.pipeline.NotificationService notificationService) {
         this.settingsManager = settingsManager;
-        this.coreSettings = coreSettings;
         this.notificationService = notificationService;
     }
 
@@ -47,6 +45,7 @@ public class ManualEditorPlugin implements BufferingPlugin {
 
     @com.fasterxml.jackson.annotation.JsonIgnoreProperties(ignoreUnknown = true)
     public static class ManualEditorSettings {
+        public boolean enabled = false;
         public boolean interceptInvalidJson = false;
         public List<String> interceptRegexRules = new ArrayList<>();
     }
@@ -82,12 +81,12 @@ public class ManualEditorPlugin implements BufferingPlugin {
 
     @Override
     public void processRequest(RequestContext context) {
-        if (!coreSettings.isInterceptRequests()) {
-            return;
-        }
-        
         ManualEditorSettings pluginSettings = settingsManager.getSettingsAs(getId(), ManualEditorSettings.class);
         if (pluginSettings == null) pluginSettings = new ManualEditorSettings();
+
+        if (!pluginSettings.enabled) {
+            return;
+        }
         
         boolean matchesRegex = false;
         List<String> regexRules = pluginSettings.interceptRegexRules;
@@ -138,12 +137,12 @@ public class ManualEditorPlugin implements BufferingPlugin {
 
     @Override
     public void processResponse(ResponseContext context) {
-        if (!coreSettings.isInterceptResponses()) {
-            return;
-        }
-
         ManualEditorSettings pluginSettings = settingsManager.getSettingsAs(getId(), ManualEditorSettings.class);
         if (pluginSettings == null) pluginSettings = new ManualEditorSettings();
+
+        if (!pluginSettings.enabled) {
+            return;
+        }
 
         boolean shouldIntercept = false;
 

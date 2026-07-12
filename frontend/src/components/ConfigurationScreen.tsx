@@ -12,11 +12,13 @@ interface PluginMetadata {
   isAsync?: boolean;
 }
 
-export function ConfigurationScreen({ globalPlugins, updatePluginOrder, hiddenTabs, toggleTabHidden }: { 
+export function ConfigurationScreen({ globalPlugins, updatePluginOrder, hiddenTabs, toggleTabHidden, defaultTab, updateDefaultTab }: { 
   globalPlugins: PluginMetadata[];
   updatePluginOrder: (newOrder: string[]) => void;
   hiddenTabs: string[];
   toggleTabHidden: (id: string) => void;
+  defaultTab: string;
+  updateDefaultTab: (tabId: string) => void;
 }) {
   const [plugins, setPlugins] = useState<PluginMetadata[]>(globalPlugins);
 
@@ -61,6 +63,29 @@ export function ConfigurationScreen({ globalPlugins, updatePluginOrder, hiddenTa
 
       <div className="flex-1 overflow-y-auto max-w-4xl mx-auto w-full space-y-8">
         
+        {/* General Settings */}
+        <div className="bg-gray-800 p-5 rounded-xl border border-gray-700">
+          <h3 className="text-lg font-medium text-gray-200 mb-4 flex items-center">
+            <Settings className="w-5 h-5 mr-2 text-indigo-400" />
+            General Settings
+          </h3>
+          <div className="flex items-center justify-between p-4 bg-gray-900/50 rounded-lg border border-gray-700">
+            <div>
+              <p className="text-gray-200 font-medium">Default Tab</p>
+              <p className="text-sm text-gray-500">Choose which tab opens automatically when LlamaProxy starts.</p>
+            </div>
+            <select
+              value={defaultTab}
+              onChange={(e) => updateDefaultTab(e.target.value)}
+              className="bg-gray-800 text-gray-200 border border-gray-600 rounded-lg px-3 py-2 outline-none focus:border-blue-500 transition-colors"
+            >
+              {globalPlugins.map(p => (
+                <option key={p.id} value={p.id}>{p.uiTabName}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
         {/* Pipeline Ordering */}
         <div className="bg-gray-800 p-5 rounded-xl border border-gray-700">
           <h3 className="text-lg font-medium text-gray-200 mb-4 flex items-center">

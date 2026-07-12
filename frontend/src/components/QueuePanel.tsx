@@ -13,16 +13,13 @@ interface RequestContext {
 interface QueuePanelProps {
   selectedRequestId: string | null;
   onSelectRequest: (id: string) => void;
-  isInterceptRequests: boolean;
-  isInterceptResponses: boolean;
   interceptInvalidJson: boolean;
   interceptRegexRules: string[];
-  onUpdateSettings: (interceptRequests: boolean, interceptResponses: boolean, logging: boolean, invalidJson: boolean, intRules: string[]) => void;
+  onUpdateSettings: (invalidJson: boolean, intRules: string[]) => void;
 }
 
 export function QueuePanel({ 
   selectedRequestId, onSelectRequest, 
-  isInterceptRequests, isInterceptResponses, 
   interceptInvalidJson, interceptRegexRules,
   onUpdateSettings 
 }: QueuePanelProps) {
@@ -72,39 +69,20 @@ export function QueuePanel({
         
         <div className="flex flex-col space-y-2">
           <label className="flex items-center justify-between cursor-pointer">
-            <span className="text-xs font-medium text-gray-400">Intercept Requests</span>
-            <button 
-              onClick={() => onUpdateSettings(!isInterceptRequests, isInterceptResponses, false, interceptInvalidJson, interceptRegexRules)}
-              className={`w-10 h-5 rounded-full transition-colors flex items-center px-1 ${isInterceptRequests ? 'bg-blue-600' : 'bg-gray-700'}`}
-            >
-              <div className={`w-3.5 h-3.5 bg-white rounded-full shadow-md transform transition-transform ${isInterceptRequests ? 'translate-x-5' : 'translate-x-0'}`}></div>
-            </button>
-          </label>
-          <label className="flex items-center justify-between cursor-pointer">
-            <span className="text-xs font-medium text-gray-400">Intercept Responses</span>
-            <button 
-              onClick={() => onUpdateSettings(isInterceptRequests, !isInterceptResponses, false, interceptInvalidJson, interceptRegexRules)}
-              className={`w-10 h-5 rounded-full transition-colors flex items-center px-1 ${isInterceptResponses ? 'bg-purple-600' : 'bg-gray-700'}`}
-            >
-              <div className={`w-3.5 h-3.5 bg-white rounded-full shadow-md transform transition-transform ${isInterceptResponses ? 'translate-x-5' : 'translate-x-0'}`}></div>
-            </button>
-          </label>
-          <label className="flex items-center justify-between cursor-pointer">
             <span className="text-xs font-medium text-gray-400">Intercept Invalid JSON</span>
             <button 
-              onClick={() => onUpdateSettings(isInterceptRequests, isInterceptResponses, false, !interceptInvalidJson, interceptRegexRules)}
+              onClick={() => onUpdateSettings(!interceptInvalidJson, interceptRegexRules)}
               className={`w-10 h-5 rounded-full transition-colors flex items-center px-1 ${interceptInvalidJson ? 'bg-red-600' : 'bg-gray-700'}`}
             >
               <div className={`w-3.5 h-3.5 bg-white rounded-full shadow-md transform transition-transform ${interceptInvalidJson ? 'translate-x-5' : 'translate-x-0'}`}></div>
             </button>
           </label>
-          
           <div className="pt-2 border-t border-gray-800 space-y-3">
             <RegexRuleList 
               title="Regex Matcher (Optional)" 
               rules={interceptRegexRules} 
-              isObjectRule={false} 
-              onChange={(newRules) => onUpdateSettings(isInterceptRequests, isInterceptResponses, false, interceptInvalidJson, newRules)} 
+              isObjectRule={false}
+              onChange={(rules: string[]) => onUpdateSettings(interceptInvalidJson, rules)} 
             />
           </div>
         </div>
