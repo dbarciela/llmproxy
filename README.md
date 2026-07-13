@@ -11,18 +11,12 @@ With Aura, you can seamlessly intercept, modify, monitor, and archive your AI AP
 
 ## 🌟 Key Features
 
-* **📡 Live Chat View**: Monitor conversations happening between your apps and the AI backend in real-time. Fully supports streaming, Markdown rendering, and expandable Tool Calls.
-* **⏸️ Request & Response Interceptor**: Pause incoming requests or outgoing responses mid-flight. Review and modify the JSON payload using the built-in Monaco Editor before forwarding them.
-* **🗃️ Archive & Network Logs**: Automatically logs all traffic to an FTS5-backed SQLite database. Perform blazing-fast full-text searches across your entire history of prompts and responses.
-* **🔔 Stateful Notifications**: An intelligent SSE-driven notification system that alerts you when requests are paused or updates are available, but stays out of your way if you're already viewing the relevant UI panel.
-* **🛠️ Target Server Control & Console**: Monitor the standard output of your `llama.cpp` process in real-time via SSE, kill the server, or launch a configured Web UI directly from the dashboard.
-* **🔄 Background Updates**: Automatically checks for `llama.cpp` updates, downloads, unzips, and restarts the server via an elegant SSE-powered Progress Modal.
-* **🧹 Smart Archive Cleanup**: Automatically detect and purge redundant chat sessions (where smaller sessions are perfect subsets of larger ones) to keep your database clean.
-* **✂️ Context Deduplication**: Seamlessly strip out enormous duplicated text blocks from conversations using a blazing-fast Rabin-Karp algorithm. Saves massive amounts of tokens and VRAM while preserving cache integrity.
-* **⚡ Prompt Transformer**: Automatically transform prompts and responses using Regex rules before they reach the model or client.
-* **💻 Hardware Metrics & Tokenization**: Monitor system VRAM and Context Token Limits in a real-time widget, alongside Time To First Token (TTFT) and Generation Speed (T/s).
-* **⚙️ Global Configuration**: Dynamically reorder the execution pipeline of plugins via a drag-and-drop interface, giving you full control over how requests are processed.
-* **🧩 Dynamic Plugin Architecture**: Completely decoupled backend and frontend plugins with 3 unique performance modes (`Streaming ⚡`, `Async 🔄`, `Buffering ⚠️`). Build new UI panels and interceptors without touching the core framework. See the [Plugins Documentation](docs/PLUGINS.md).
+* **🕵️‍♂️ Live Inspection & Interception**: Monitor LLM traffic in real-time (with streaming & Markdown support). Pause, review, and edit JSON payloads mid-flight using a built-in Monaco Editor.
+* **🧠 Context Optimization**: Automatically strip out massive, redundant text blocks using a Rabin-Karp algorithm (Context Deduplication) and transform prompts on-the-fly to save tokens and VRAM.
+* **📊 Advanced Telemetry**: Track live system metrics (CPU, VRAM usage) and token generation speeds (Time-to-First-Token, T/s) directly from the dashboard status bar.
+* **🗃️ Smart Archiving**: Automatically logs all traffic to an FTS5-backed SQLite database for blazing-fast full-text searches. Aura actively purges redundant chat sessions to keep your history clean.
+* **🛠️ Server Orchestration**: Control your local backend (e.g., `llama.cpp`) right from the UI. Stream console logs, trigger background updates, or launch connected Web UIs with a single click.
+* **🧩 Modular Plugin Pipeline**: Built on a highly concurrent Java Virtual Threads backend with a drag-and-drop React frontend. Easily build and reorder custom interceptors (Streaming, Async, or Buffering) without touching the core framework. See the [Plugins Documentation](docs/PLUGINS.md).
 
 ---
 
