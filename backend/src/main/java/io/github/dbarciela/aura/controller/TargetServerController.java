@@ -42,6 +42,7 @@ public class TargetServerController {
                 .followRedirects(java.net.http.HttpClient.Redirect.NORMAL)
                 .build();
         org.springframework.http.client.JdkClientHttpRequestFactory factory = new org.springframework.http.client.JdkClientHttpRequestFactory(httpClient);
+        factory.setReadTimeout(3000); // 3 seconds timeout to prevent blocking scheduled tasks
         this.restClient = RestClient.builder().requestFactory(factory).build();
     }
 
@@ -204,25 +205,23 @@ public class TargetServerController {
                     } catch (Exception e) {}
                 };
 
-                // 0. Kill the server
-                emitProgress.accept("KILLING", "running");
-                java.net.URL url = new java.net.URL(targetServerUrl);
-                int port = url.getPort();
-                if (port != -1) {
-                    killProcessOnPort(port);
-                }
-                Thread.sleep(1000); // Give OS time to release port
-                emitProgress.accept("KILLING", "done");
-
-                // 1. Fetch latest release from GitHub
+                // 1. Fetch latest release from GitHub FIRST (before killing server)
                 emitProgress.accept("DOWNLOADING", "running");
                 String repo = "ggml-org/llama.cpp";
                 String apiUrl = "https://api.github.com/repos/" + repo + "/releases/latest";
 
-                String jsonResponse = restClient.get()
-                        .uri(apiUrl)
-                        .retrieve()
-                        .body(String.class);
+                String jsonResponse;
+                try {
+                    jsonResponse = restClient.get()
+                            .uri(apiUrl)
+                            .retrieve()
+                            .body(String.class);
+                } catch (org.springframework.web.client.HttpClientErrorException e) {
+                    if (e.getStatusCode().value() == 403 || e.getStatusCode().value() == 429) {
+                        throw new RuntimeException("GitHub API rate limit exceeded. Cannot check for updates right now.");
+                    }
+                    throw e;
+                }
 
                 if (jsonResponse == null) {
                     throw new RuntimeException("Failed to fetch release data from GitHub.");
@@ -248,8 +247,20 @@ public class TargetServerController {
                 }
 
                 if (downloadUrl == null) {
-                    throw new RuntimeException("Error: Asset matching regex '" + releaseRegex + "' not found in latest release.");
+                    throw new RuntimeException("No asset matching regex '" + releaseRegex + "' found in latest release.");
                 }
+
+                // 3. Now that we have the URL, Kill the server
+                emitProgress.accept("KILLING", "running");
+                java.net.URL url = new java.net.URL(targetServerUrl);
+                int port = url.getPort();
+                if (port != -1) {
+                    killProcessOnPort(port);
+                }
+                Thread.sleep(1000); // Give OS time to release port
+                emitProgress.accept("KILLING", "done");
+
+
 
                 // 3. Ensure install directory exists
                 java.io.File installDirectory = new java.io.File(installDir);
@@ -351,10 +362,19 @@ public class TargetServerController {
             String repo = "ggml-org/llama.cpp";
             String apiUrl = "https://api.github.com/repos/" + repo + "/releases/latest";
 
-            String jsonResponse = restClient.get()
-                    .uri(apiUrl)
-                    .retrieve()
-                    .body(String.class);
+            String jsonResponse;
+            try {
+                jsonResponse = restClient.get()
+                        .uri(apiUrl)
+                        .retrieve()
+                        .body(String.class);
+            } catch (org.springframework.web.client.HttpClientErrorException e) {
+                if (e.getStatusCode().value() == 403 || e.getStatusCode().value() == 429) {
+                    System.err.println("GitHub API rate limit hit while checking for Llama.cpp updates. Skipping update check.");
+                    return ResponseEntity.status(429).body(java.util.Map.of("error", "GitHub API rate limit exceeded"));
+                }
+                throw e;
+            }
 
             if (jsonResponse == null) {
                 return ResponseEntity.internalServerError().body(java.util.Map.of("error", "Failed to fetch release data"));
