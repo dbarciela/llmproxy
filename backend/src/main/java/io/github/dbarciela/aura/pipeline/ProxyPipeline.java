@@ -85,6 +85,10 @@ public class ProxyPipeline {
 			if (!shouldProcess(plugin)) {
 				continue;
 			}
+			if (!plugin.isBuffering() && !plugin.isAsync()) {
+				// Streaming plugins are handled differently or skipped here
+				continue;
+			}
 			if (plugin.isAsync()) {
 				asyncQueue.offer(() -> plugin.processRequest(context));
 			} else {
@@ -96,6 +100,10 @@ public class ProxyPipeline {
 	public void processResponse(ResponseContext context) {
 		for (ProxyPlugin plugin : plugins) {
 			if (!shouldProcess(plugin)) {
+				continue;
+			}
+			if (!plugin.isBuffering() && !plugin.isAsync()) {
+				// Streaming plugins are handled differently or skipped here
 				continue;
 			}
 			if (plugin.isAsync()) {

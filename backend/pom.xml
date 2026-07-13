@@ -87,7 +87,6 @@
 						<recipe>org.openrewrite.staticanalysis.CommonStaticAnalysis</recipe>
 						<recipe>org.openrewrite.java.RemoveUnusedImports</recipe>
 						<recipe>org.openrewrite.java.ShortenFullyQualifiedTypeReferences</recipe>
-						<recipe>org.openrewrite.java.RemoveUnusedImports</recipe>
 					</activeRecipes>
 				</configuration>
 				<dependencies>
