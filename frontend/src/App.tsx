@@ -63,7 +63,7 @@ export default function App() {
 
   useEffect(() => {
     const activePlugin = globalPlugins.find(p => p.id === activeTab);
-    document.title = `LlamaProxy - ${activePlugin ? activePlugin.uiTabName : 'Home'}`;
+    document.title = `Aura - ${activePlugin ? activePlugin.uiTabName : 'Home'}`;
 
     fetch('/api/proxy/ui/active-tab', {
       method: 'POST',
@@ -176,7 +176,7 @@ export default function App() {
             className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent cursor-pointer hover:opacity-80 transition-opacity"
             title="Open Global Configuration"
           >
-            LlamaProxy
+            Aura
           </h1>
           
           <div className="flex space-x-2 bg-gray-800 p-1 rounded-lg">
@@ -283,7 +283,7 @@ export default function App() {
       {/* Status Bar */}
       <footer className="h-6 bg-gray-900 border-t border-gray-800 flex items-center px-4 justify-between z-50">
         <HardwareWidget />
-        <div className="text-[10px] text-gray-500 font-medium tracking-wider">LlamaProxy</div>
+        <div className="text-[10px] text-gray-500 font-medium tracking-wider">Aura</div>
       </footer>
     </div>
   );

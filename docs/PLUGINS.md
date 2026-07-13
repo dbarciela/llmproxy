@@ -1,6 +1,6 @@
-# Guia de Desenvolvimento de Plugins para o LlamaProxy
+# Guia de Desenvolvimento de Plugins para o Aura
 
-O LlamaProxy possui uma arquitetura 100% modular. Podes adicionar novos comportamentos de interceção, modificação ou análise criando **Plugins**.
+O Aura possui uma arquitetura 100% modular. Podes adicionar novos comportamentos de interceção, modificação ou análise criando **Plugins**.
 
 Um Plugin completo é composto por:
 1. **Backend**: Uma classe Java que implementa a interface `AsyncPlugin`, `BufferingPlugin` ou `StreamingPlugin`.
@@ -10,23 +10,23 @@ Um Plugin completo é composto por:
 
 ## 1. Criar um Plugin no Backend (Java)
 
-Todos os plugins no LlamaProxy processam pedidos (Requests) e respostas (Responses) em formato "pipeline" (corrente de execução).
+Todos os plugins no Aura processam pedidos (Requests) e respostas (Responses) em formato "pipeline" (corrente de execução).
 
 Podes implementar uma de três interfaces base, dependendo da necessidade do teu plugin:
 - **`AsyncPlugin`**: Executa numa *Virtual Thread* dedicada em background. Recebe os dados, mas o processamento decorre fora do *hot-path* do proxy. Zero impacto de bloqueio para o utilizador. Ideal para Live Chat, Logs, Telemétrica. Recebem o selo **🔄 ASYNC** no UI.
 - **`BufferingPlugin`**: Recebe o payload do request/response como uma `String` completa. Tem maior impacto na memória para payloads gigantescos (ex: > 50MB), mas é fundamental se o teu plugin precisar de analisar ou editar o documento como um todo (ex: Manipulação de JSON complexa, Deduplicação por Sliding Window, Editores Manuais). Recebem o selo **⚠️ BUFFERING** no UI.
 - **`StreamingPlugin`**: Processa dados *on-the-fly* através de streams. Zero impacto na memória. Recebem o selo **⚡ STREAMING** no UI.
 
-Cria uma classe na pasta `backend/src/main/java/com/example/llamaproxy/pipeline/plugins/`.
+Cria uma classe na pasta `backend/src/main/java/com/example/Aura/pipeline/plugins/`.
 
 ### Exemplo: `HelloPlugin.java`
 ```java
-package com.example.llamaproxy.pipeline.plugins;
+package com.example.Aura.pipeline.plugins;
 
-import com.example.llamaproxy.config.PluginSettingsManager;
-import com.example.llamaproxy.pipeline.BufferingPlugin;
-import com.example.llamaproxy.pipeline.RequestContext;
-import com.example.llamaproxy.pipeline.ResponseContext;
+import com.example.Aura.config.PluginSettingsManager;
+import com.example.Aura.pipeline.BufferingPlugin;
+import com.example.Aura.pipeline.RequestContext;
+import com.example.Aura.pipeline.ResponseContext;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
@@ -84,7 +84,7 @@ public class HelloPlugin implements BufferingPlugin {
 }
 ```
 
-O `PluginSettingsManager` irá garantir que as definições por defeito são registadas no arranque, e podes atualizá-las nativamente pela API de configurações genérica do LlamaProxy sem escrever *Controllers* adicionais.
+O `PluginSettingsManager` irá garantir que as definições por defeito são registadas no arranque, e podes atualizá-las nativamente pela API de configurações genérica do Aura sem escrever *Controllers* adicionais.
 
 ---
 
@@ -142,7 +142,7 @@ export const pluginComponents: Record<string, React.ComponentType<any>> = {
 };
 ```
 
-O LlamaProxy vai detetar o teu plugin no backend, adicionar o toggle na barra superior (se `hasUiToggle() = true`), e carregar o teu componente React (`HelloPanel`) na tab "Say Hello". Também vai aparecer automaticamente na tab de Global Configuration para que a sua ordem de execução possa ser modificada.
+O Aura vai detetar o teu plugin no backend, adicionar o toggle na barra superior (se `hasUiToggle() = true`), e carregar o teu componente React (`HelloPanel`) na tab "Say Hello". Também vai aparecer automaticamente na tab de Global Configuration para que a sua ordem de execução possa ser modificada.
 
 ### Notas importantes:
 - Os dados injetados via `updateSettings` no Frontend são guardados no disco (`proxy-settings.json`).

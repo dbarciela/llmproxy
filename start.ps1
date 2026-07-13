@@ -11,11 +11,11 @@ if ($connection) {
         Write-Host "Process $pidToKill has been terminated." -ForegroundColor Green
         Start-Sleep -Seconds 1
     } else {
-        Write-Host "Process was not terminated. LlamaProxy might fail to start due to port conflict." -ForegroundColor Red
+        Write-Host "Process was not terminated. Aura might fail to start due to port conflict." -ForegroundColor Red
     }
 }
 
-Write-Host "Starting LlamaProxy..." -ForegroundColor Cyan
+Write-Host "Starting Aura..." -ForegroundColor Cyan
 $scriptPath = Split-Path -Parent $MyInvocation.MyCommand.Definition
 Set-Location -Path "$scriptPath\backend"
 .\mvnw clean spring-boot:run "-Dspring-boot.devtools.restart.enabled=false"

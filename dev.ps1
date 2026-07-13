@@ -1,7 +1,7 @@
 # dev.ps1 - Fast Development Environment Launcher
 $scriptPath = Split-Path -Parent $MyInvocation.MyCommand.Definition
 
-Write-Host "Starting LlamaProxy Development Environment..." -ForegroundColor Cyan
+Write-Host "Starting Aura Development Environment..." -ForegroundColor Cyan
 Write-Host "This will open 3 separate windows for Backend, Frontend, and File Watcher." -ForegroundColor Cyan
 
 # 1. Start Backend with DevTools enabled

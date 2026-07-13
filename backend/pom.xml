@@ -8,11 +8,11 @@
 		<version>4.1.0</version>
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
-	<groupId>com.example</groupId>
-	<artifactId>llamaproxy</artifactId>
+	<groupId>io.github.dbarciela</groupId>
+	<artifactId>aura</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name>llamaproxy</name>
-	<description>LlamaProxy</description>
+	<name>aura</name>
+	<description>Aura</description>
 	<url/>
 	<licenses>
 		<license/>

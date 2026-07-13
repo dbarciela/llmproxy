@@ -56,7 +56,7 @@ export function ConfigurationScreen({ globalPlugins, updatePluginOrder, hiddenTa
             Global Pipeline Configuration
           </h2>
           <p className="text-gray-400 mt-1">
-            Reorder how requests flow through the LlamaProxy plugins.
+            Reorder how requests flow through the Aura plugins.
           </p>
         </div>
       </div>
@@ -72,7 +72,7 @@ export function ConfigurationScreen({ globalPlugins, updatePluginOrder, hiddenTa
           <div className="flex items-center justify-between p-4 bg-gray-900/50 rounded-lg border border-gray-700">
             <div>
               <p className="text-gray-200 font-medium">Default Tab</p>
-              <p className="text-sm text-gray-500">Choose which tab opens automatically when LlamaProxy starts.</p>
+              <p className="text-sm text-gray-500">Choose which tab opens automatically when Aura starts.</p>
             </div>
             <select
               value={defaultTab}

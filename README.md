@@ -1,8 +1,8 @@
-# LlamaProxy 🦙
+# Aura ✨
 
-LlamaProxy is a powerful, developer-friendly reverse proxy designed to sit between your AI applications and an OpenAI-compatible backend (specifically tailored for `llama.cpp` servers). It features a modern React-based UI and a highly concurrent Java Spring Boot backend built on Virtual Threads.
+Aura (**Au**gmented **R**equest **A**rchitecture) is a powerful, developer-friendly AI Hub designed to sit between your AI applications and an OpenAI-compatible backend (agnostic, but originally tailored for local servers). It features a modern React-based UI and a highly concurrent Java Spring Boot backend built on Virtual Threads.
 
-With LlamaProxy, you can seamlessly intercept, modify, monitor, and archive your AI API traffic in real-time.
+With Aura, you can seamlessly intercept, modify, monitor, and archive your AI API traffic in real-time.
 
 ---
 
@@ -84,7 +84,7 @@ By default, the backend expects your target server to be running on `http://loca
 
 ## 🔌 API Proxy Usage
 
-Once LlamaProxy is running, point your AI applications to `http://localhost:8080` instead of your actual LLM server. 
+Once Aura is running, point your AI applications to `http://localhost:8080` instead of your actual LLM server. 
 For example, if using the OpenAI Python SDK:
 
 ```python
@@ -95,5 +95,5 @@ client = OpenAI(
     api_key="sk-no-key-required"
 )
 
-# Your requests will now appear in the LlamaProxy dashboard!
+# Your requests will now appear in the Aura dashboard!
 ```
