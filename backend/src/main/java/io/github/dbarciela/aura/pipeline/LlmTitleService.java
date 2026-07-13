@@ -7,6 +7,8 @@ import java.util.regex.Pattern;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
@@ -15,6 +17,7 @@ import org.springframework.web.client.RestClient;
 @Service
 public class LlmTitleService {
 
+	private static final Logger log = LoggerFactory.getLogger(LlmTitleService.class);
 	private final RestClient restClient;
 	private final String targetServerUrl;
 	private final ObjectMapper mapper = new ObjectMapper();
@@ -88,8 +91,7 @@ public class LlmTitleService {
 
 			String systemPrompt = "You are a helpful assistant. Please read the following start of a conversation and generate a short, explanatory title for it (max 10 words). The title should describe the specific technical intent or question of the user. Do not use quotes or prefixes, output ONLY the title.";
 
-			// Build OpenAI compatible request payload
-			System.out.println("CLEANED MESSAGE FOR TITLE: " + firstMessage);
+			log.debug("CLEANED MESSAGE FOR TITLE: {}", firstMessage);
 
 			// Build OpenAI compatible request payload
 			String requestPayload = """
@@ -124,18 +126,17 @@ public class LlmTitleService {
 								JsonNode messageNode = respNode.get("choices").get(0).path("message");
 								if (messageNode.has("content")) {
 									String generated = messageNode.get("content").asText().trim();
-									System.out.println("GENERATED TITLE: " + generated);
+									log.debug("GENERATED TITLE: {}", generated);
 									return generated;
 								}
 							}
 						}
-						System.out.println("LLM API FAILED, STATUS: " + clientResponse.getStatusCode());
+						log.warn("LLM API FAILED, STATUS: {}", clientResponse.getStatusCode());
 						return "Failed to generate title";
 					});
 
 		} catch (Exception e) {
-			e.printStackTrace();
-			System.out.println("LLM API EXCEPTION: " + e.getMessage());
+			log.error("LLM API EXCEPTION: {}", e.getMessage(), e);
 			return "Error: " + e.getMessage();
 		}
 	}

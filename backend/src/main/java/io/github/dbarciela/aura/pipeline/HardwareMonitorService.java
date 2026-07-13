@@ -9,6 +9,8 @@ import java.util.Map;
 
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import oshi.SystemInfo;
@@ -24,6 +26,7 @@ public class HardwareMonitorService {
 	private final HardwareAbstractionLayer hal;
 
 	private boolean nvidiaSmiAvailable = true;
+	private static final Logger log = LoggerFactory.getLogger(HardwareMonitorService.class);
 
 	public HardwareMonitorService(LiveChatBroadcaster broadcaster) {
 		this.broadcaster = broadcaster;
@@ -93,8 +96,7 @@ public class HardwareMonitorService {
 			} catch (Exception e) {
 				// Not NVIDIA or nvidia-smi not in PATH
 				nvidiaSmiAvailable = false;
-				System.out.println(
-						"WARN: nvidia-smi not found or failed. VRAM metrics will not be displayed. Currently only NVIDIA GPUs are supported.");
+				log.warn("nvidia-smi not found or failed. VRAM metrics will not be displayed. Currently only NVIDIA GPUs are supported.");
 			}
 		}
 
@@ -103,7 +105,7 @@ public class HardwareMonitorService {
 			String json = mapper.writeValueAsString(stats);
 			broadcaster.broadcastHardware(json);
 		} catch (Exception e) {
-			e.printStackTrace();
+			log.error("Failed to broadcast hardware metrics", e);
 		}
 	}
 }

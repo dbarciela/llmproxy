@@ -37,6 +37,9 @@ import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import io.github.dbarciela.aura.pipeline.NotificationDTO;
 import io.github.dbarciela.aura.pipeline.NotificationService;
 
@@ -52,6 +55,8 @@ public class TargetServerController {
 	private final RestClient restClient;
 	private final NotificationService notificationService;
 	private final AtomicBoolean serverHealthy = new AtomicBoolean(false);
+	private static final Logger log = LoggerFactory.getLogger(TargetServerController.class);
+	private final java.net.http.HttpClient healthHttpClient;
 
 	public TargetServerController(@Value("${target.server.url}") String targetServerUrl,
 			@Value("${target.server.restart-script}") String restartScript,
@@ -70,6 +75,10 @@ public class TargetServerController {
 				httpClient);
 		factory.setReadTimeout(3000); // 3 seconds timeout to prevent blocking scheduled tasks
 		this.restClient = RestClient.builder().requestFactory(factory).build();
+		
+		this.healthHttpClient = java.net.http.HttpClient.newBuilder()
+				.connectTimeout(java.time.Duration.ofSeconds(3))
+				.build();
 	}
 
 	@Scheduled(fixedRate = 5000)
@@ -85,13 +94,13 @@ public class TargetServerController {
 					.GET()
 					.build();
 			
-			java.net.http.HttpClient client = java.net.http.HttpClient.newHttpClient();
-			java.net.http.HttpResponse<String> response = client.send(request, java.net.http.HttpResponse.BodyHandlers.ofString());
+			java.net.http.HttpResponse<String> response = this.healthHttpClient.send(request, java.net.http.HttpResponse.BodyHandlers.ofString());
 			boolean healthy = response.statusCode() >= 200 && response.statusCode() < 300;
 			serverHealthy.set(healthy);
+			log.trace("[HealthCheck] Target {} is ONLINE. HTTP {}", baseUrl, response.statusCode());
 		} catch (Exception e) {
 			serverHealthy.set(false);
-			System.err.println("[HealthCheck] ERROR: Failed to connect - " + e.getClass().getName() + " - " + e.getMessage());
+			log.debug("[HealthCheck] Failed to connect: {} - {}", e.getClass().getName(), e.getMessage());
 		}
 	}
 
@@ -130,14 +139,14 @@ public class TargetServerController {
 					String[] parts = line.trim().split("\\s+");
 					if (parts.length > 4) {
 						String pid = parts[parts.length - 1];
-						System.out.println("Killing process with PID: " + pid + " on port: " + port);
+						log.info("Killing process with PID: {} on port: {}", pid, port);
 						new ProcessBuilder("cmd.exe", "/c", "taskkill /F /PID " + pid).start().waitFor();
 					}
 				}
 			}
 			process.waitFor();
 		} catch (Exception e) {
-			System.err.println("Failed to kill process on port " + port + ": " + e.getMessage());
+			log.error("Failed to kill process on port {}: {}", port, e.getMessage());
 		}
 	}
 
@@ -419,8 +428,7 @@ public class TargetServerController {
 				jsonResponse = restClient.get().uri(apiUrl).retrieve().body(String.class);
 			} catch (HttpClientErrorException e) {
 				if (e.getStatusCode().value() == 403 || e.getStatusCode().value() == 429) {
-					System.err.println(
-							"GitHub API rate limit hit while checking for Llama.cpp updates. Skipping update check.");
+					log.warn("GitHub API rate limit hit while checking for Llama.cpp updates. Skipping update check.");
 					return ResponseEntity.status(429).body(Map.of("error", "GitHub API rate limit exceeded"));
 				}
 				throw e;
