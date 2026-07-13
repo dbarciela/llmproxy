@@ -1,7 +1,11 @@
 package io.github.dbarciela.aura.pipeline;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -23,8 +27,8 @@ public class LiveChatBroadcaster {
 	private String lastRequestId = null;
 	private String lastRequestPayload = null;
 	private String lastDonePayload = null;
-	private final java.util.List<String> lastChunks = java.util.Collections
-			.synchronizedList(new java.util.ArrayList<>());
+	private final List<String> lastChunks = Collections
+			.synchronizedList(new ArrayList<>());
 
 	private record ClientWorker(BlockingQueue<String> queue, Thread thread) {
 	}
@@ -73,7 +77,7 @@ public class LiveChatBroadcaster {
 		emitter.onTimeout(() -> removeClient(emitter));
 		emitter.onError(e -> removeClient(emitter));
 
-		return emitter;
+		return emitter; 
 	}
 
 	private void removeClient(SseEmitter emitter) {
@@ -121,19 +125,19 @@ public class LiveChatBroadcaster {
 
 	public void broadcastNotificationData(String jsonPayload) {
 		String eventMessage = String.format("{\"id\":\"%s\",\"type\":\"%s\",\"data\":%s}",
-				java.util.UUID.randomUUID().toString(), "NOTIFICATION", jsonPayload);
+				UUID.randomUUID().toString(), "NOTIFICATION", jsonPayload);
 		pushEventToAll(eventMessage);
 	}
 
 	public void broadcastHardware(String jsonPayload) {
 		String eventMessage = String.format("{\"id\":\"%s\",\"type\":\"%s\",\"data\":%s}",
-				java.util.UUID.randomUUID().toString(), "HARDWARE", jsonPayload);
+				UUID.randomUUID().toString(), "HARDWARE", jsonPayload);
 		pushEventToAll(eventMessage);
 	}
 
 	public void broadcastContextLimit(int limit) {
 		String eventMessage = String.format("{\"id\":\"%s\",\"type\":\"%s\",\"data\":%d}",
-				java.util.UUID.randomUUID().toString(), "CONTEXT_LIMIT", limit);
+				UUID.randomUUID().toString(), "CONTEXT_LIMIT", limit);
 		pushEventToAll(eventMessage);
 	}
 

@@ -2,11 +2,15 @@ package io.github.dbarciela.aura.pipeline;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import oshi.SystemInfo;
 import oshi.hardware.CentralProcessor;
@@ -58,7 +62,7 @@ public class HardwareMonitorService {
 						"--format=csv,noheader,nounits").start();
 				BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
 
-				java.util.List<Map<String, Object>> gpus = new java.util.ArrayList<>();
+				List<Map<String, Object>> gpus = new ArrayList<>();
 				String line;
 
 				while ((line = reader.readLine()) != null) {
@@ -96,7 +100,7 @@ public class HardwareMonitorService {
 		}
 
 		try {
-			com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+			ObjectMapper mapper = new ObjectMapper();
 			String json = mapper.writeValueAsString(stats);
 			broadcaster.broadcastHardware(json);
 		} catch (Exception e) {

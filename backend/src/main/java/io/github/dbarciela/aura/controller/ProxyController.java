@@ -5,6 +5,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Enumeration;
+import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
@@ -15,6 +18,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.RestClient;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import io.github.dbarciela.aura.pipeline.LiveChatBroadcaster;
 import io.github.dbarciela.aura.pipeline.ProxyPipeline;
 import io.github.dbarciela.aura.pipeline.RequestContext;
 import io.github.dbarciela.aura.pipeline.ResponseContext;
@@ -27,10 +33,10 @@ public class ProxyController {
 	private final ProxyPipeline pipeline;
 	private final RestClient restClient;
 	private final String targetServerUrl;
-	private final io.github.dbarciela.aura.pipeline.LiveChatBroadcaster liveChatBroadcaster;
+	private final LiveChatBroadcaster liveChatBroadcaster;
 
 	public ProxyController(ProxyPipeline pipeline,
-			io.github.dbarciela.aura.pipeline.LiveChatBroadcaster liveChatBroadcaster,
+			LiveChatBroadcaster liveChatBroadcaster,
 			@Value("${target.server.url}") String targetServerUrl) {
 		this.pipeline = pipeline;
 		this.liveChatBroadcaster = liveChatBroadcaster;
@@ -200,8 +206,8 @@ public class ProxyController {
 			int totalTokens = 0;
 
 			// Try to find "usage" block in payload
-			java.util.regex.Pattern p = java.util.regex.Pattern.compile("\"usage\"\\s*:\\s*(\\{[^}]+\\})");
-			java.util.regex.Matcher m = p.matcher(payload);
+			Pattern p = Pattern.compile("\"usage\"\\s*:\\s*(\\{[^}]+\\})");
+			Matcher m = p.matcher(payload);
 			String usageJson = null;
 			while (m.find()) {
 				usageJson = m.group(1); // last one
@@ -209,9 +215,9 @@ public class ProxyController {
 
 			if (usageJson != null) {
 				try {
-					com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+					ObjectMapper mapper = new ObjectMapper();
 					@SuppressWarnings("unchecked")
-					java.util.Map<String, Object> usage = mapper.readValue(usageJson, java.util.Map.class);
+					Map<String, Object> usage = mapper.readValue(usageJson, Map.class);
 					if (usage.containsKey("prompt_tokens")) {
 						promptTokens = ((Number) usage.get("prompt_tokens")).intValue();
 					}

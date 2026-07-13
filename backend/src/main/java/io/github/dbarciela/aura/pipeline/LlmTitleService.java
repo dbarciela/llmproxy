@@ -1,6 +1,8 @@
 package io.github.dbarciela.aura.pipeline;
 
 import java.nio.charset.StandardCharsets;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
@@ -57,9 +59,9 @@ public class LlmTitleService {
 					firstMessage = root.get("messages").get(0).path("content").asText(); // fallback
 				}
 				// Smart extraction: Look for <userRequest> or <user_input>
-				java.util.regex.Matcher m = java.util.regex.Pattern
+				Matcher m = Pattern
 						.compile("<user(?:Request|_input|Input)>([\\s\\S]*?)</user(?:Request|_input|Input)>",
-								java.util.regex.Pattern.CASE_INSENSITIVE)
+								Pattern.CASE_INSENSITIVE)
 						.matcher(firstMessage);
 				if (m.find()) {
 					StringBuilder smartExtracted = new StringBuilder();

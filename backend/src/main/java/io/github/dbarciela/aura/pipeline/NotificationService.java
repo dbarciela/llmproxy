@@ -5,6 +5,8 @@ import java.util.UUID;
 
 import org.springframework.stereotype.Service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import io.github.dbarciela.aura.db.NotificationRepository;
 
 @Service
@@ -39,7 +41,7 @@ public class NotificationService {
 		repository.save(notification);
 
 		try {
-			com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+			ObjectMapper mapper = new ObjectMapper();
 			String json = mapper.writeValueAsString(notification);
 			// Send the literal JSON string through SSE
 			broadcaster.broadcastNotificationData(json);

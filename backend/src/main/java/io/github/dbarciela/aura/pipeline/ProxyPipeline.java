@@ -1,21 +1,27 @@
 package io.github.dbarciela.aura.pipeline;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 
 import org.springframework.stereotype.Component;
+
+import io.github.dbarciela.aura.config.PluginSettingsManager;
+import io.github.dbarciela.aura.pipeline.plugins.ManualEditorPlugin;
 
 @Component
 public class ProxyPipeline {
 
 	private List<ProxyPlugin> plugins;
-	private final io.github.dbarciela.aura.config.PluginSettingsManager pluginSettingsManager;
-	private final java.util.concurrent.BlockingQueue<Runnable> asyncQueue = new java.util.concurrent.LinkedBlockingQueue<>();
+	private final PluginSettingsManager pluginSettingsManager;
+	private final BlockingQueue<Runnable> asyncQueue = new LinkedBlockingQueue<>();
 
 	public ProxyPipeline(List<ProxyPlugin> plugins,
-			io.github.dbarciela.aura.config.PluginSettingsManager pluginSettingsManager) {
+			PluginSettingsManager pluginSettingsManager) {
 		// Create a mutable copy of the injected list, which is initially sorted by
 		// @Order
-		this.plugins = new java.util.ArrayList<>(plugins);
+		this.plugins = new ArrayList<>(plugins);
 		this.pluginSettingsManager = pluginSettingsManager;
 
 		for (ProxyPlugin plugin : this.plugins) {
@@ -111,9 +117,9 @@ public class ProxyPipeline {
 	}
 
 	public boolean requiresResponseBuffering() {
-		io.github.dbarciela.aura.pipeline.plugins.ManualEditorPlugin.ManualEditorSettings manualSettings = pluginSettingsManager
+		ManualEditorPlugin.ManualEditorSettings manualSettings = pluginSettingsManager
 				.getSettingsAs("manual-editor",
-						io.github.dbarciela.aura.pipeline.plugins.ManualEditorPlugin.ManualEditorSettings.class);
+						ManualEditorPlugin.ManualEditorSettings.class);
 		if (manualSettings != null && manualSettings.enabled) {
 			return true;
 		}

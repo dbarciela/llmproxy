@@ -1,5 +1,7 @@
 package io.github.dbarciela.aura.pipeline.plugins;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -51,8 +53,8 @@ public class PromptTransformerPlugin implements ProxyPlugin {
 	}
 
 	public static class TransformerSettings {
-		public java.util.List<PromptReplaceRule> promptReplaceRules = new java.util.ArrayList<>();
-		public java.util.List<PromptReplaceRule> responseReplaceRules = new java.util.ArrayList<>();
+		public List<PromptReplaceRule> promptReplaceRules = new ArrayList<>();
+		public List<PromptReplaceRule> responseReplaceRules = new ArrayList<>();
 	}
 
 	@Override

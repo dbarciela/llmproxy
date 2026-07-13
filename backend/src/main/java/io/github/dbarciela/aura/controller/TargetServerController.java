@@ -1,17 +1,44 @@
 package io.github.dbarciela.aura.controller;
 
+import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.RandomAccessFile;
+import java.net.URI;
+import java.net.URL;
+import java.net.http.HttpClient;
+import java.nio.file.Files;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.BiConsumer;
+import java.util.regex.Pattern;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import io.github.dbarciela.aura.pipeline.NotificationDTO;
+import io.github.dbarciela.aura.pipeline.NotificationService;
 
 @RestController
 @RequestMapping("/api/proxy")
@@ -23,23 +50,23 @@ public class TargetServerController {
 	private final String installDir;
 	private final String releaseRegex;
 	private final RestClient restClient;
-	private final io.github.dbarciela.aura.pipeline.NotificationService notificationService;
+	private final NotificationService notificationService;
 	private final AtomicBoolean serverHealthy = new AtomicBoolean(false);
 
 	public TargetServerController(@Value("${target.server.url}") String targetServerUrl,
 			@Value("${target.server.restart-script}") String restartScript,
 			@Value("${llama.cpp.install.dir}") String installDir,
 			@Value("${llama.cpp.release.regex}") String releaseRegex,
-			io.github.dbarciela.aura.pipeline.NotificationService notificationService) {
+			NotificationService notificationService) {
 		this.targetServerUrl = targetServerUrl;
 		this.restartScript = restartScript;
 		this.installDir = installDir;
 		this.releaseRegex = releaseRegex;
 		this.notificationService = notificationService;
 
-		java.net.http.HttpClient httpClient = java.net.http.HttpClient.newBuilder()
-				.followRedirects(java.net.http.HttpClient.Redirect.NORMAL).build();
-		org.springframework.http.client.JdkClientHttpRequestFactory factory = new org.springframework.http.client.JdkClientHttpRequestFactory(
+		HttpClient httpClient = HttpClient.newBuilder()
+				.followRedirects(HttpClient.Redirect.NORMAL).build();
+		JdkClientHttpRequestFactory factory = new JdkClientHttpRequestFactory(
 				httpClient);
 		factory.setReadTimeout(3000); // 3 seconds timeout to prevent blocking scheduled tasks
 		this.restClient = RestClient.builder().requestFactory(factory).build();
@@ -74,8 +101,8 @@ public class TargetServerController {
 	private void killProcessOnPort(int port) {
 		try {
 			Process process = new ProcessBuilder("cmd.exe", "/c", "netstat -ano | findstr :" + port).start();
-			java.io.BufferedReader reader = new java.io.BufferedReader(
-					new java.io.InputStreamReader(process.getInputStream()));
+			BufferedReader reader = new BufferedReader(
+					new InputStreamReader(process.getInputStream()));
 			String line;
 			while ((line = reader.readLine()) != null) {
 				if (line.contains("LISTENING")) {
@@ -97,7 +124,7 @@ public class TargetServerController {
 	public ResponseEntity<String> restartTarget() {
 		try {
 			// Extract port from targetServerUrl
-			java.net.URL url = java.net.URI.create(targetServerUrl).toURL();
+			URL url = URI.create(targetServerUrl).toURL();
 			int port = url.getPort();
 			if (port != -1) {
 				killProcessOnPort(port);
@@ -107,12 +134,12 @@ public class TargetServerController {
 			Thread.sleep(1000);
 
 			ProcessBuilder pb = new ProcessBuilder("cmd.exe", "/c", restartScript);
-			java.io.File scriptFile = new java.io.File(restartScript);
+			File scriptFile = new File(restartScript);
 			if (scriptFile.exists() && scriptFile.getParentFile() != null) {
 				pb.directory(scriptFile.getParentFile());
 			}
 			pb.redirectErrorStream(true);
-			pb.redirectOutput(new java.io.File("target-server.log"));
+			pb.redirectOutput(new File("target-server.log"));
 			pb.start();
 			return ResponseEntity.ok("Restart command issued.");
 		} catch (Exception e) {
@@ -123,7 +150,7 @@ public class TargetServerController {
 	@PostMapping("/kill-target")
 	public ResponseEntity<String> killTarget() {
 		try {
-			java.net.URL url = java.net.URI.create(targetServerUrl).toURL();
+			URL url = URI.create(targetServerUrl).toURL();
 			int port = url.getPort();
 			if (port != -1) {
 				killProcessOnPort(port);
@@ -135,24 +162,24 @@ public class TargetServerController {
 		}
 	}
 
-	@GetMapping(value = "/target-logs-stream", produces = org.springframework.http.MediaType.TEXT_EVENT_STREAM_VALUE)
-	public org.springframework.web.servlet.mvc.method.annotation.SseEmitter streamTargetLogs() {
-		org.springframework.web.servlet.mvc.method.annotation.SseEmitter emitter = new org.springframework.web.servlet.mvc.method.annotation.SseEmitter(
+	@GetMapping(value = "/target-logs-stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+	public SseEmitter streamTargetLogs() {
+		SseEmitter emitter = new SseEmitter(
 				Long.MAX_VALUE);
 		Thread.startVirtualThread(() -> {
 			try {
-				java.io.File logFile = new java.io.File("target-server.log");
+				File logFile = new File("target-server.log");
 
 				long lastKnownPosition = 0;
 				if (logFile.exists()) {
 					long length = logFile.length();
 					lastKnownPosition = length > 50000 ? length - 50000 : 0;
 				} else {
-					java.util.Map<String, String> payload = new java.util.HashMap<>();
+					Map<String, String> payload = new HashMap<>();
 					payload.put("type", "INITIAL");
 					payload.put("data", "Log file not found. Have you restarted the server yet?\n");
-					emitter.send(org.springframework.web.servlet.mvc.method.annotation.SseEmitter.event().name("log")
-							.data(new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(payload)));
+					emitter.send(SseEmitter.event().name("log")
+							.data(new ObjectMapper().writeValueAsString(payload)));
 				}
 
 				while (true) {
@@ -163,7 +190,7 @@ public class TargetServerController {
 							lastKnownPosition = 0;
 						}
 						if (length > lastKnownPosition) {
-							java.io.RandomAccessFile raf = new java.io.RandomAccessFile(logFile, "r");
+							RandomAccessFile raf = new RandomAccessFile(logFile, "r");
 							raf.seek(lastKnownPosition);
 							byte[] bytes = new byte[(int) (length - lastKnownPosition)];
 							raf.readFully(bytes);
@@ -171,11 +198,11 @@ public class TargetServerController {
 							lastKnownPosition = length;
 
 							String newLogs = new String(bytes);
-							java.util.Map<String, String> payload = new java.util.HashMap<>();
+							Map<String, String> payload = new HashMap<>();
 							payload.put("type", "APPEND");
 							payload.put("data", newLogs);
-							emitter.send(org.springframework.web.servlet.mvc.method.annotation.SseEmitter.event()
-									.name("log").data(new com.fasterxml.jackson.databind.ObjectMapper()
+							emitter.send(SseEmitter.event()
+									.name("log").data(new ObjectMapper()
 											.writeValueAsString(payload)));
 						}
 					}
@@ -191,21 +218,21 @@ public class TargetServerController {
 		return emitter;
 	}
 
-	@GetMapping(value = "/update-llama-stream", produces = org.springframework.http.MediaType.TEXT_EVENT_STREAM_VALUE)
-	public org.springframework.web.servlet.mvc.method.annotation.SseEmitter updateLlamaStream() {
-		org.springframework.web.servlet.mvc.method.annotation.SseEmitter emitter = new org.springframework.web.servlet.mvc.method.annotation.SseEmitter(
+	@GetMapping(value = "/update-llama-stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+	public SseEmitter updateLlamaStream() {
+		SseEmitter emitter = new SseEmitter(
 				Long.MAX_VALUE);
-		com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+		ObjectMapper mapper = new ObjectMapper();
 
 		Thread.startVirtualThread(() -> {
 			try {
 				// Helper to emit progress
-				java.util.function.BiConsumer<String, String> emitProgress = (step, status) -> {
+				BiConsumer<String, String> emitProgress = (step, status) -> {
 					try {
-						java.util.Map<String, String> payload = new java.util.HashMap<>();
+						Map<String, String> payload = new HashMap<>();
 						payload.put("step", step);
 						payload.put("status", status);
-						emitter.send(org.springframework.web.servlet.mvc.method.annotation.SseEmitter.event()
+						emitter.send(SseEmitter.event()
 								.name("progress").data(mapper.writeValueAsString(payload)));
 					} catch (Exception e) {
 					}
@@ -219,7 +246,7 @@ public class TargetServerController {
 				String jsonResponse;
 				try {
 					jsonResponse = restClient.get().uri(apiUrl).retrieve().body(String.class);
-				} catch (org.springframework.web.client.HttpClientErrorException e) {
+				} catch (HttpClientErrorException e) {
 					if (e.getStatusCode().value() == 403 || e.getStatusCode().value() == 429) {
 						throw new RuntimeException(
 								"GitHub API rate limit exceeded. Cannot check for updates right now.");
@@ -231,16 +258,16 @@ public class TargetServerController {
 					throw new RuntimeException("Failed to fetch release data from GitHub.");
 				}
 
-				com.fasterxml.jackson.databind.JsonNode releaseData = mapper.readTree(jsonResponse);
+				JsonNode releaseData = mapper.readTree(jsonResponse);
 
 				// 2. Find asset matching regex
-				java.util.regex.Pattern pattern = java.util.regex.Pattern.compile(releaseRegex);
+				Pattern pattern = Pattern.compile(releaseRegex);
 				String downloadUrl = null;
 				String filename = null;
 
-				com.fasterxml.jackson.databind.JsonNode assets = releaseData.get("assets");
+				JsonNode assets = releaseData.get("assets");
 				if (assets != null && assets.isArray()) {
-					for (com.fasterxml.jackson.databind.JsonNode asset : assets) {
+					for (JsonNode asset : assets) {
 						String assetName = asset.get("name").asText();
 						if (pattern.matcher(assetName).matches()) {
 							downloadUrl = asset.get("browser_download_url").asText();
@@ -257,7 +284,7 @@ public class TargetServerController {
 
 				// 3. Now that we have the URL, Kill the server
 				emitProgress.accept("KILLING", "running");
-				java.net.URL url = java.net.URI.create(targetServerUrl).toURL();
+				URL url = URI.create(targetServerUrl).toURL();
 				int port = url.getPort();
 				if (port != -1) {
 					killProcessOnPort(port);
@@ -266,31 +293,31 @@ public class TargetServerController {
 				emitProgress.accept("KILLING", "done");
 
 				// 3. Ensure install directory exists
-				java.io.File installDirectory = new java.io.File(installDir);
+				File installDirectory = new File(installDir);
 				if (!installDirectory.exists() && !installDirectory.mkdirs()) {
 					throw new RuntimeException("Failed to create install directory: " + installDir);
 				}
 
 				// 4. Download file
-				java.io.File downloadedZip = new java.io.File(installDirectory, filename);
+				File downloadedZip = new File(installDirectory, filename);
 				byte[] zipBytes = restClient.get().uri(downloadUrl).retrieve().body(byte[].class);
 
 				if (zipBytes == null) {
 					throw new RuntimeException("Failed to download file payload.");
 				}
 
-				java.nio.file.Files.write(downloadedZip.toPath(), zipBytes);
+				Files.write(downloadedZip.toPath(), zipBytes);
 				emitProgress.accept("DOWNLOADING", "done");
 
 				// 5. Unzip the file
 				emitProgress.accept("UNZIPPING", "running");
-				try (java.util.zip.ZipInputStream zis = new java.util.zip.ZipInputStream(
-						new java.io.ByteArrayInputStream(zipBytes))) {
-					java.util.zip.ZipEntry zipEntry = zis.getNextEntry();
+				try (ZipInputStream zis = new ZipInputStream(
+						new ByteArrayInputStream(zipBytes))) {
+					ZipEntry zipEntry = zis.getNextEntry();
 					while (zipEntry != null) {
-						java.io.File newFile = new java.io.File(installDirectory, zipEntry.getName());
+						File newFile = new File(installDirectory, zipEntry.getName());
 						if (!newFile.getCanonicalPath()
-								.startsWith(installDirectory.getCanonicalPath() + java.io.File.separator)) {
+								.startsWith(installDirectory.getCanonicalPath() + File.separator)) {
 							throw new IOException("Entry is outside of the target dir: " + zipEntry.getName());
 						}
 						if (zipEntry.isDirectory()) {
@@ -298,11 +325,11 @@ public class TargetServerController {
 								throw new IOException("Failed to create directory " + newFile);
 							}
 						} else {
-							java.io.File parent = newFile.getParentFile();
+							File parent = newFile.getParentFile();
 							if (!parent.isDirectory() && !parent.mkdirs()) {
 								throw new IOException("Failed to create directory " + parent);
 							}
-							try (java.io.FileOutputStream fos = new java.io.FileOutputStream(newFile)) {
+							try (FileOutputStream fos = new FileOutputStream(newFile)) {
 								byte[] buffer = new byte[8192];
 								int len;
 								while ((len = zis.read(buffer)) > 0) {
@@ -322,19 +349,19 @@ public class TargetServerController {
 				// 7. Save version to version.txt
 				emitProgress.accept("UPDATING_VERSION", "running");
 				String latestTag = releaseData.get("tag_name").asText();
-				java.io.File versionFile = new java.io.File(installDirectory, "version.txt");
-				java.nio.file.Files.writeString(versionFile.toPath(), latestTag);
+				File versionFile = new File(installDirectory, "version.txt");
+				Files.writeString(versionFile.toPath(), latestTag);
 				emitProgress.accept("UPDATING_VERSION", "done");
 
 				// 8. Restart Server
 				emitProgress.accept("RESTARTING", "running");
 				ProcessBuilder pb = new ProcessBuilder("cmd.exe", "/c", restartScript);
-				java.io.File scriptFile = new java.io.File(restartScript);
+				File scriptFile = new File(restartScript);
 				if (scriptFile.exists() && scriptFile.getParentFile() != null) {
 					pb.directory(scriptFile.getParentFile());
 				}
 				pb.redirectErrorStream(true);
-				pb.redirectOutput(new java.io.File("target-server.log"));
+				pb.redirectOutput(new File("target-server.log"));
 				pb.start();
 				emitProgress.accept("RESTARTING", "done");
 
@@ -344,11 +371,11 @@ public class TargetServerController {
 
 			} catch (Exception e) {
 				try {
-					java.util.Map<String, String> payload = new java.util.HashMap<>();
+					Map<String, String> payload = new HashMap<>();
 					payload.put("step", "ERROR");
 					payload.put("status", "error");
 					payload.put("message", e.getMessage());
-					emitter.send(org.springframework.web.servlet.mvc.method.annotation.SseEmitter.event()
+					emitter.send(SseEmitter.event()
 							.name("progress").data(mapper.writeValueAsString(payload)));
 					emitter.completeWithError(e);
 				} catch (Exception ex) {
@@ -369,60 +396,60 @@ public class TargetServerController {
 			String jsonResponse;
 			try {
 				jsonResponse = restClient.get().uri(apiUrl).retrieve().body(String.class);
-			} catch (org.springframework.web.client.HttpClientErrorException e) {
+			} catch (HttpClientErrorException e) {
 				if (e.getStatusCode().value() == 403 || e.getStatusCode().value() == 429) {
 					System.err.println(
 							"GitHub API rate limit hit while checking for Llama.cpp updates. Skipping update check.");
-					return ResponseEntity.status(429).body(java.util.Map.of("error", "GitHub API rate limit exceeded"));
+					return ResponseEntity.status(429).body(Map.of("error", "GitHub API rate limit exceeded"));
 				}
 				throw e;
 			}
 
 			if (jsonResponse == null) {
 				return ResponseEntity.internalServerError()
-						.body(java.util.Map.of("error", "Failed to fetch release data"));
+						.body(Map.of("error", "Failed to fetch release data"));
 			}
 
-			com.fasterxml.jackson.databind.JsonNode releaseData = new com.fasterxml.jackson.databind.ObjectMapper()
+			JsonNode releaseData = new ObjectMapper()
 					.readTree(jsonResponse);
 
 			if (!releaseData.has("tag_name")) {
 				return ResponseEntity.internalServerError()
-						.body(java.util.Map.of("error", "Failed to find tag_name in release data"));
+						.body(Map.of("error", "Failed to find tag_name in release data"));
 			}
 
 			String latestTag = releaseData.get("tag_name").asText();
 			String currentTag = "unknown";
 
-			java.io.File versionFile = new java.io.File(installDir, "version.txt");
+			File versionFile = new File(installDir, "version.txt");
 			if (versionFile.exists()) {
-				currentTag = java.nio.file.Files.readString(versionFile.toPath()).trim();
+				currentTag = Files.readString(versionFile.toPath()).trim();
 			}
 
 			boolean updateAvailable = !latestTag.equals(currentTag);
 
 			if (updateAvailable && !notificationService.hasUnreadNotification("updater")) {
-				io.github.dbarciela.aura.pipeline.NotificationDTO n = new io.github.dbarciela.aura.pipeline.NotificationDTO();
+				NotificationDTO n = new NotificationDTO();
 				n.setSourcePlugin("updater");
 				n.setTitle("Llama Update Available");
 				n.setMessage("Version " + latestTag + " is available to download.");
 				n.setLevel("info");
 
 				String releaseUrl = "https://github.com/" + repo + "/releases/latest";
-				n.setActions(java.util.List.of(
-						new io.github.dbarciela.aura.pipeline.NotificationDTO.NotificationAction("Update Now", null,
+				n.setActions(List.of(
+						new NotificationDTO.NotificationAction("Update Now", null,
 								null, null, "/api/proxy/update-llama-stream", true),
-						new io.github.dbarciela.aura.pipeline.NotificationDTO.NotificationAction("Read Release Notes",
+						new NotificationDTO.NotificationAction("Read Release Notes",
 								null, releaseUrl, null, null, false)));
 				notificationService.addNotification(n);
 			}
 
-			return ResponseEntity.ok(java.util.Map.of("updateAvailable", updateAvailable, "latestVersion", latestTag,
+			return ResponseEntity.ok(Map.of("updateAvailable", updateAvailable, "latestVersion", latestTag,
 					"currentVersion", currentTag));
 
 		} catch (Exception e) {
 			e.printStackTrace();
-			return ResponseEntity.internalServerError().body(java.util.Map.of("error", e.getMessage()));
+			return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage()));
 		}
 	}
 }

@@ -2,6 +2,7 @@ package io.github.dbarciela.aura.pipeline.plugins;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
@@ -30,7 +31,7 @@ public class ContextDeduplicatorPlugin implements BufferingPlugin {
 	// Global stats
 	private int globalSavedChars = 0;
 	private int globalTotalOriginalChars = 0;
-	private final Map<String, String> globalDeduplicatedBlocks = new java.util.concurrent.ConcurrentHashMap<>();
+	private final Map<String, String> globalDeduplicatedBlocks = new ConcurrentHashMap<>();
 
 	public Map<String, Object> getStats() {
 		Map<String, Object> stats = new HashMap<>();

@@ -1,26 +1,37 @@
 package io.github.dbarciela.aura.controller;
 
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import io.github.dbarciela.aura.db.SessionHistoryRepository;
+import io.github.dbarciela.aura.pipeline.LlmTitleService;
 
 @RestController
 @RequestMapping("/api/proxy")
 public class ArchiveController {
 
 	private final SessionHistoryRepository repository;
-	private final io.github.dbarciela.aura.pipeline.LlmTitleService llmTitleService;
-	private final org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
+	private final LlmTitleService llmTitleService;
+	private final JdbcTemplate jdbcTemplate;
 
 	public ArchiveController(SessionHistoryRepository repository,
-			io.github.dbarciela.aura.pipeline.LlmTitleService llmTitleService,
-			org.springframework.jdbc.core.JdbcTemplate jdbcTemplate) {
+			LlmTitleService llmTitleService,
+			JdbcTemplate jdbcTemplate) {
 		this.repository = repository;
 		this.llmTitleService = llmTitleService;
 		this.jdbcTemplate = jdbcTemplate;
@@ -31,8 +42,8 @@ public class ArchiveController {
 		return repository.search(query);
 	}
 
-	@org.springframework.web.bind.annotation.PostMapping("/archive/title")
-	public Map<String, String> generateTitle(@org.springframework.web.bind.annotation.RequestBody List<String> ids) {
+	@PostMapping("/archive/title")
+	public Map<String, String> generateTitle(@RequestBody List<String> ids) {
 		if (ids == null || ids.isEmpty()) {
 			throw new RuntimeException("No sessions provided");
 		}
@@ -60,23 +71,23 @@ public class ArchiveController {
 		return Map.of("improved_title", improvedTitle);
 	}
 
-	@org.springframework.web.bind.annotation.DeleteMapping("/archive/{id}")
-	public void deleteSession(@org.springframework.web.bind.annotation.PathVariable String id) {
+	@DeleteMapping("/archive/{id}")
+	public void deleteSession(@PathVariable String id) {
 		repository.deleteById(id);
 	}
 
-	@org.springframework.web.bind.annotation.DeleteMapping("/archive/bulk")
-	public void deleteSessions(@org.springframework.web.bind.annotation.RequestBody List<String> ids) {
+	@DeleteMapping("/archive/bulk")
+	public void deleteSessions(@RequestBody List<String> ids) {
 		repository.deleteByIds(ids);
 	}
 
-	@org.springframework.web.bind.annotation.DeleteMapping("/archive/all")
+	@DeleteMapping("/archive/all")
 	public void deleteAllSessions() {
 		repository.deleteAll();
 	}
 
-	@org.springframework.web.bind.annotation.PostMapping("/archive/cleanup")
-	public Map<String, Object> cleanupRedundant(@org.springframework.web.bind.annotation.RequestBody List<String> ids) {
+	@PostMapping("/archive/cleanup")
+	public Map<String, Object> cleanupRedundant(@RequestBody List<String> ids) {
 		if (ids == null || ids.isEmpty()) {
 			return Map.of("deleted", List.of());
 		}
@@ -86,8 +97,8 @@ public class ArchiveController {
 			return Map.of("deleted", List.of());
 		}
 
-		com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-		java.util.List<SessionData> parsed = new java.util.ArrayList<>();
+		ObjectMapper mapper = new ObjectMapper();
+		List<SessionData> parsed = new ArrayList<>();
 
 		for (Map<String, Object> row : sessions) {
 			String id = (String) row.get("id");
@@ -103,8 +114,8 @@ public class ArchiveController {
 				}
 				String reqStr = parts[0].replace("REQUEST:\n", "").trim();
 
-				com.fasterxml.jackson.databind.JsonNode root = mapper.readTree(reqStr);
-				com.fasterxml.jackson.databind.JsonNode messages = root.path("messages");
+				JsonNode root = mapper.readTree(reqStr);
+				JsonNode messages = root.path("messages");
 
 				if (messages.isArray()) {
 					parsed.add(new SessionData(id, messages.size(), reqStr));
@@ -114,9 +125,9 @@ public class ArchiveController {
 			}
 		}
 
-		parsed.sort(java.util.Comparator.comparingInt(a -> a.messageCount));
+		parsed.sort(Comparator.comparingInt(a -> a.messageCount));
 
-		java.util.List<String> toDelete = new java.util.ArrayList<>();
+		List<String> toDelete = new ArrayList<>();
 
 		for (int i = 0; i < parsed.size(); i++) {
 			SessionData a = parsed.get(i);
@@ -126,10 +137,10 @@ public class ArchiveController {
 
 				boolean isSubset = true;
 				try {
-					com.fasterxml.jackson.databind.JsonNode aRoot = mapper.readTree(a.rawReq);
-					com.fasterxml.jackson.databind.JsonNode bRoot = mapper.readTree(b.rawReq);
-					com.fasterxml.jackson.databind.JsonNode aMsgs = aRoot.path("messages");
-					com.fasterxml.jackson.databind.JsonNode bMsgs = bRoot.path("messages");
+					JsonNode aRoot = mapper.readTree(a.rawReq);
+					JsonNode bRoot = mapper.readTree(b.rawReq);
+					JsonNode aMsgs = aRoot.path("messages");
+					JsonNode bMsgs = bRoot.path("messages");
 
 					if (aMsgs.size() >= bMsgs.size()) {
 						isSubset = false;

@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import io.github.dbarciela.aura.pipeline.QueueItemDTO;
 import io.github.dbarciela.aura.pipeline.plugins.ManualEditorPlugin;
 
 @RestController
@@ -26,7 +27,7 @@ public class QueueController {
 	}
 
 	@GetMapping("/queue")
-	public List<io.github.dbarciela.aura.pipeline.QueueItemDTO> getQueue() {
+	public List<QueueItemDTO> getQueue() {
 		return manualEditorPlugin.getQueue();
 	}
 

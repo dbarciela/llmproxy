@@ -1,11 +1,15 @@
 package io.github.dbarciela.aura.pipeline.plugins;
 
+import java.util.List;
+
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 import io.github.dbarciela.aura.config.ProxySettings;
 import io.github.dbarciela.aura.db.SessionHistoryRepository;
 import io.github.dbarciela.aura.pipeline.AsyncPlugin;
+import io.github.dbarciela.aura.pipeline.NotificationDTO;
+import io.github.dbarciela.aura.pipeline.NotificationService;
 import io.github.dbarciela.aura.pipeline.RequestContext;
 import io.github.dbarciela.aura.pipeline.ResponseContext;
 
@@ -54,10 +58,10 @@ public class ArchivePlugin implements AsyncPlugin {
 
 	private final ProxySettings settings;
 	private final SessionHistoryRepository repository;
-	private final io.github.dbarciela.aura.pipeline.NotificationService notificationService;
+	private final NotificationService notificationService;
 
 	public ArchivePlugin(ProxySettings settings, SessionHistoryRepository repository,
-			io.github.dbarciela.aura.pipeline.NotificationService notificationService) {
+			NotificationService notificationService) {
 		this.settings = settings;
 		this.repository = repository;
 		this.notificationService = notificationService;
@@ -87,12 +91,12 @@ public class ArchivePlugin implements AsyncPlugin {
 		repository.save(id, endpoint, statusCode, fullPayload);
 
 		if (!"archive".equals(notificationService.getActiveTab()) && !notificationService.hasUnreadNotification("archive")) {
-			io.github.dbarciela.aura.pipeline.NotificationDTO n = new io.github.dbarciela.aura.pipeline.NotificationDTO();
+			NotificationDTO n = new NotificationDTO();
 			n.setSourcePlugin("archive");
 			n.setTitle("New Session Logged");
 			n.setMessage("A new chat session was just archived.");
 			n.setLevel("info");
-			n.setActions(java.util.List.of(new io.github.dbarciela.aura.pipeline.NotificationDTO.NotificationAction(
+			n.setActions(List.of(new NotificationDTO.NotificationAction(
 					"View Log", null, null, "archive")));
 			notificationService.addNotification(n);
 		}

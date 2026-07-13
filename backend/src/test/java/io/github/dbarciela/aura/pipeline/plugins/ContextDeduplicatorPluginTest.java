@@ -15,6 +15,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 
 import io.github.dbarciela.aura.config.PluginSettingsManager;
 import io.github.dbarciela.aura.pipeline.LiveChatBroadcaster;
@@ -35,8 +37,8 @@ class ContextDeduplicatorPluginTest {
 	@BeforeEach
 	void setUp() {
 		plugin = new ContextDeduplicatorPlugin(settingsManager, broadcaster);
-		requestContext = new RequestContext(org.springframework.http.HttpMethod.POST, "http://localhost",
-				new org.springframework.http.HttpHeaders(), "{}");
+		requestContext = new RequestContext(HttpMethod.POST, "http://localhost",
+				new HttpHeaders(), "{}");
 	}
 
 	private void mockSettings(boolean enabled, int threshold) {

@@ -1,6 +1,8 @@
 package io.github.dbarciela.aura.controller;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.springframework.web.bind.annotation.GetMapping;
@@ -11,9 +13,12 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import io.github.dbarciela.aura.config.PluginSettingsManager;
 import io.github.dbarciela.aura.config.ProxySettings;
+import io.github.dbarciela.aura.pipeline.ProxyPipeline;
+import io.github.dbarciela.aura.pipeline.ProxyPlugin;
 
 @RestController
 @RequestMapping("/api/proxy")
@@ -21,10 +26,10 @@ public class SettingsController {
 
 	private final ProxySettings settings;
 	private final PluginSettingsManager pluginSettingsManager;
-	private final io.github.dbarciela.aura.pipeline.ProxyPipeline proxyPipeline;
+	private final ProxyPipeline proxyPipeline;
 
 	public SettingsController(ProxySettings settings, PluginSettingsManager pluginSettingsManager,
-			io.github.dbarciela.aura.pipeline.ProxyPipeline proxyPipeline) {
+			ProxyPipeline proxyPipeline) {
 		this.settings = settings;
 		this.pluginSettingsManager = pluginSettingsManager;
 		this.proxyPipeline = proxyPipeline;
@@ -46,7 +51,7 @@ public class SettingsController {
 
 	@PutMapping("/settings")
 	public void updateSettings(@RequestBody Map<String, Object> newSettingsMap) {
-		com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+		ObjectMapper mapper = new ObjectMapper();
 		JsonNode newSettings = mapper.valueToTree(newSettingsMap);
 		if (newSettings.has("defaultTab")) {
 			settings.setDefaultTab(newSettings.get("defaultTab").asText());
@@ -63,14 +68,14 @@ public class SettingsController {
 
 	@PutMapping("/plugins/{pluginId}/settings")
 	public void updatePluginSettings(@PathVariable String pluginId, @RequestBody Map<String, Object> newSettingsMap) {
-		com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+		ObjectMapper mapper = new ObjectMapper();
 		pluginSettingsManager.updateSettings(pluginId, mapper.valueToTree(newSettingsMap));
 	}
 
 	@GetMapping("/plugins/metadata")
-	public java.util.List<Map<String, Object>> getPluginMetadata() {
-		java.util.List<Map<String, Object>> metadataList = new java.util.ArrayList<>();
-		for (io.github.dbarciela.aura.pipeline.ProxyPlugin plugin : proxyPipeline.getPlugins()) {
+	public List<Map<String, Object>> getPluginMetadata() {
+		List<Map<String, Object>> metadataList = new ArrayList<>();
+		for (ProxyPlugin plugin : proxyPipeline.getPlugins()) {
 			Map<String, Object> metadata = new HashMap<>();
 			metadata.put("id", plugin.getId());
 			metadata.put("name", plugin.getName());
@@ -85,7 +90,7 @@ public class SettingsController {
 	}
 
 	@PutMapping("/plugins/order")
-	public void updatePluginOrder(@RequestBody java.util.List<String> orderedIds) {
+	public void updatePluginOrder(@RequestBody List<String> orderedIds) {
 		proxyPipeline.setPluginOrder(orderedIds);
 	}
 }

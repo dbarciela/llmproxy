@@ -4,12 +4,18 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
+import java.util.regex.Pattern;
 
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import io.github.dbarciela.aura.config.PluginSettingsManager;
 import io.github.dbarciela.aura.pipeline.BufferingPlugin;
+import io.github.dbarciela.aura.pipeline.NotificationDTO;
+import io.github.dbarciela.aura.pipeline.NotificationService;
 import io.github.dbarciela.aura.pipeline.QueueItemDTO;
 import io.github.dbarciela.aura.pipeline.RequestContext;
 import io.github.dbarciela.aura.pipeline.ResponseContext;
@@ -19,31 +25,31 @@ import io.github.dbarciela.aura.pipeline.ResponseContext;
 public class ManualEditorPlugin implements BufferingPlugin {
 
 	private final PluginSettingsManager settingsManager;
-	private final io.github.dbarciela.aura.pipeline.NotificationService notificationService;
+	private final NotificationService notificationService;
 	private final ConcurrentHashMap<String, Object> queue = new ConcurrentHashMap<>();
 	private final ConcurrentHashMap<String, CountDownLatch> latches = new ConcurrentHashMap<>();
 	private final List<String> order = new ArrayList<>(); // To maintain custom order if needed
 
 	public ManualEditorPlugin(PluginSettingsManager settingsManager,
-			io.github.dbarciela.aura.pipeline.NotificationService notificationService) {
+			NotificationService notificationService) {
 		this.settingsManager = settingsManager;
 		this.notificationService = notificationService;
 	}
 
 	private void notifyIfUnread() {
 		if (!"intercept".equals(notificationService.getActiveTab()) && !notificationService.hasUnreadNotification("interceptor")) {
-			io.github.dbarciela.aura.pipeline.NotificationDTO n = new io.github.dbarciela.aura.pipeline.NotificationDTO();
+			NotificationDTO n = new NotificationDTO();
 			n.setSourcePlugin("interceptor");
 			n.setTitle("Request Intercepted");
 			n.setMessage("A request or response has been paused and is waiting for your manual review.");
 			n.setLevel("warning");
-			n.setActions(List.of(new io.github.dbarciela.aura.pipeline.NotificationDTO.NotificationAction(
+			n.setActions(List.of(new NotificationDTO.NotificationAction(
 					"Review Request", null, null, "intercept")));
 			notificationService.addNotification(n);
 		}
 	}
 
-	@com.fasterxml.jackson.annotation.JsonIgnoreProperties(ignoreUnknown = true)
+	@JsonIgnoreProperties(ignoreUnknown = true)
 	public static class ManualEditorSettings {
 		public boolean enabled = false;
 		public boolean interceptInvalidJson = false;
@@ -99,7 +105,7 @@ public class ManualEditorPlugin implements BufferingPlugin {
 				if (regex != null && !regex.trim().isEmpty()) {
 					try {
 						if (context.getPayload() != null
-								&& java.util.regex.Pattern.compile(regex).matcher(context.getPayload()).find()) {
+								&& Pattern.compile(regex).matcher(context.getPayload()).find()) {
 							matchesRegex = true;
 							break;
 						}
@@ -153,7 +159,7 @@ public class ManualEditorPlugin implements BufferingPlugin {
 		// 1. Invalid JSON check
 		if (pluginSettings.interceptInvalidJson && context.getPayload() != null) {
 			try {
-				com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+				ObjectMapper mapper = new ObjectMapper();
 				mapper.readTree(context.getPayload());
 			} catch (Exception e) {
 				// Not valid JSON
@@ -170,7 +176,7 @@ public class ManualEditorPlugin implements BufferingPlugin {
 					if (regex != null && !regex.trim().isEmpty()) {
 						try {
 							if (context.getPayload() != null
-									&& java.util.regex.Pattern.compile(regex).matcher(context.getPayload()).find()) {
+									&& Pattern.compile(regex).matcher(context.getPayload()).find()) {
 								matchesRegex = true;
 								break;
 							}

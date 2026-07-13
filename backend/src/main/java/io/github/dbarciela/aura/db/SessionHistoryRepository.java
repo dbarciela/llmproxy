@@ -1,5 +1,6 @@
 package io.github.dbarciela.aura.db;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -85,7 +86,7 @@ public class SessionHistoryRepository {
 		if (ids == null || ids.isEmpty()) {
 			return;
 		}
-		String inSql = String.join(",", java.util.Collections.nCopies(ids.size(), "?"));
+		String inSql = String.join(",", Collections.nCopies(ids.size(), "?"));
 		jdbcTemplate.update(String.format("DELETE FROM session_history WHERE id IN (%s)", inSql), ids.toArray());
 	}
 
@@ -97,7 +98,7 @@ public class SessionHistoryRepository {
 		if (ids == null || ids.isEmpty()) {
 			return List.of();
 		}
-		String inSql = String.join(",", java.util.Collections.nCopies(ids.size(), "?"));
+		String inSql = String.join(",", Collections.nCopies(ids.size(), "?"));
 		return jdbcTemplate.queryForList(
 				String.format("SELECT id, full_payload FROM session_history WHERE id IN (%s)", inSql), ids.toArray());
 	}
