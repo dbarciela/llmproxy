@@ -41,4 +41,12 @@ public class PluginSettingsManager {
     public Map<String, JsonNode> getAllSettings() {
         return pluginSettings;
     }
+
+    public boolean isPluginEnabled(String pluginId) {
+        JsonNode node = pluginSettings.get(pluginId);
+        if (node != null && node.has("enabled")) {
+            return node.get("enabled").asBoolean(true);
+        }
+        return true; // Default to true if no settings or no enabled flag
+    }
 }

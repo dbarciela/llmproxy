@@ -83,7 +83,7 @@ public class ContextDeduplicatorPlugin implements BufferingPlugin {
     @Override
     public void processRequest(RequestContext context) {
         DeduplicatorSettings pluginSettings = settingsManager.getSettingsAs(getId(), DeduplicatorSettings.class);
-        if (pluginSettings == null || !pluginSettings.enabled) return;
+        if (pluginSettings == null) pluginSettings = new DeduplicatorSettings();
 
         String payload = context.getPayload();
         if (payload == null || payload.isEmpty()) return;

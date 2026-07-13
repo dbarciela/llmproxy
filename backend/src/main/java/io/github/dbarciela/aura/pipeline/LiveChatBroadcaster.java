@@ -18,12 +18,36 @@ public class LiveChatBroadcaster {
     // Mapeamento de Emitters para as suas respetivas filas e threads
     private final Map<SseEmitter, ClientWorker> clients = new ConcurrentHashMap<>();
 
+    // State preservation for new clients
+    private String lastRequestId = null;
+    private String lastRequestPayload = null;
+    private String lastDonePayload = null;
+    private final java.util.List<String> lastChunks = java.util.Collections.synchronizedList(new java.util.ArrayList<>());
+
     private record ClientWorker(BlockingQueue<String> queue, Thread thread) {}
 
     public SseEmitter subscribe() {
         SseEmitter emitter = new SseEmitter(Long.MAX_VALUE);
         BlockingQueue<String> queue = new LinkedBlockingQueue<>(); // Fila ilimitada
         
+        // Push cached state immediately
+        if (lastRequestId != null && lastRequestPayload != null) {
+            String reqMsg = String.format("{\"id\":\"%s\",\"type\":\"%s\",\"data\":%s}", lastRequestId, "REQUEST", lastRequestPayload);
+            queue.offer(reqMsg);
+            
+            if (lastDonePayload != null) {
+                String doneMsg = String.format("{\"id\":\"%s\",\"type\":\"%s\",\"data\":%s}", lastRequestId, "DONE", lastDonePayload);
+                queue.offer(doneMsg);
+            } else {
+                synchronized (lastChunks) {
+                    for (String chunk : lastChunks) {
+                        String chunkMsg = String.format("{\"id\":\"%s\",\"type\":\"%s\",\"data\":%s}", lastRequestId, "CHUNK", chunk);
+                        queue.offer(chunkMsg);
+                    }
+                }
+            }
+        }
+
         // Inicia UMA única Virtual Thread dedicada exclusivamente a este cliente
         Thread workerThread = Thread.startVirtualThread(() -> {
             try {
@@ -61,14 +85,26 @@ public class LiveChatBroadcaster {
     }
 
     public void broadcastRequest(String id, String payload) {
+        try {
+            this.lastRequestId = id;
+            this.lastRequestPayload = mapper.writeValueAsString(payload);
+            this.lastDonePayload = null;
+            this.lastChunks.clear();
+        } catch (Exception e) {}
         broadcast(id, "REQUEST", payload);
     }
 
     public void broadcastChunk(String id, String chunk) {
+        try {
+            this.lastChunks.add(mapper.writeValueAsString(chunk));
+        } catch (Exception e) {}
         broadcast(id, "CHUNK", chunk);
     }
 
     public void broadcastDone(String id, String payload) {
+        try {
+            this.lastDonePayload = mapper.writeValueAsString(payload);
+        } catch (Exception e) {}
         broadcast(id, "DONE", payload);
     }
 

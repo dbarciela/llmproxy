@@ -55,10 +55,19 @@ public class ProxyPipeline {
         });
     }
 
+    private boolean shouldProcess(ProxyPlugin plugin) {
+        if (!plugin.hasUiToggle()) return true;
+        if (plugin.runsWhenDisabled()) return true;
+        return pluginSettingsManager.isPluginEnabled(plugin.getId());
+    }
+
     public void processRequest(RequestContext context) {
         for (ProxyPlugin plugin : plugins) {
             if (context.isDropped()) {
                 break;
+            }
+            if (!shouldProcess(plugin)) {
+                continue;
             }
             if (plugin.isAsync()) {
                 asyncQueue.offer(() -> plugin.processRequest(context));
@@ -70,6 +79,9 @@ public class ProxyPipeline {
 
     public void processResponse(ResponseContext context) {
         for (ProxyPlugin plugin : plugins) {
+            if (!shouldProcess(plugin)) {
+                continue;
+            }
             if (plugin.isAsync()) {
                 asyncQueue.offer(() -> plugin.processResponse(context));
             } else {
@@ -80,6 +92,9 @@ public class ProxyPipeline {
 
     public void processChunk(String reqId, String chunk) {
         for (ProxyPlugin plugin : plugins) {
+            if (!shouldProcess(plugin)) {
+                continue;
+            }
             if (plugin.isAsync()) {
                 asyncQueue.offer(() -> plugin.processChunk(reqId, chunk));
             }

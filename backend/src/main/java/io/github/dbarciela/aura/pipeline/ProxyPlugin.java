@@ -39,6 +39,12 @@ public interface ProxyPlugin {
     default boolean hasUiToggle() { return false; }
 
     /**
+     * If true, the pipeline will deliver events to this plugin even if its UI toggle is off.
+     * If false (default), the pipeline will automatically check PluginSettingsManager and skip it if disabled.
+     */
+    default boolean runsWhenDisabled() { return false; }
+
+    /**
      * The default order of execution in the pipeline. 
      */
     default int getDefaultOrder() { return 100; }
