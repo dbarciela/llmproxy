@@ -1,6 +1,7 @@
 package io.github.dbarciela.aura.pipeline;
 
 import java.io.BufferedReader;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -93,7 +94,7 @@ public class HardwareMonitorService {
 					stats.put("gpus", gpus);
 				}
 				process.waitFor();
-			} catch (java.io.IOException | InterruptedException e) {
+			} catch (IOException | InterruptedException e) {
 				// Not NVIDIA or nvidia-smi not in PATH
 				nvidiaSmiAvailable = false;
 				log.warn("nvidia-smi not found or failed. VRAM metrics will not be displayed. Currently only NVIDIA GPUs are supported.");

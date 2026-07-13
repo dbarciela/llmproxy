@@ -1,14 +1,16 @@
 package io.github.dbarciela.aura.pipeline.plugins;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+
+
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
-import io.github.dbarciela.aura.pipeline.StreamingPlugin;
 import io.github.dbarciela.aura.pipeline.RequestContext;
 import io.github.dbarciela.aura.pipeline.ResponseContext;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.io.IOException;
+import io.github.dbarciela.aura.pipeline.StreamingPlugin;
 
 @Component
 @Order(20)

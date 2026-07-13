@@ -1,22 +1,26 @@
 package io.github.dbarciela.aura.pipeline;
 
-import java.util.Map;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.time.Duration;
 
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestClient;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 @Service
 public class LlamaPropsService {
 
 	private static final Logger log = LoggerFactory.getLogger(LlamaPropsService.class);
-	private final java.net.http.HttpClient httpClient;
-	private final com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+	private final HttpClient httpClient;
+	private final ObjectMapper mapper = new ObjectMapper();
 	private final String targetServerUrl;
 	private final LiveChatBroadcaster broadcaster;
 
@@ -25,8 +29,8 @@ public class LlamaPropsService {
 	public LlamaPropsService(@Value("${target.server.url}") String targetServerUrl, LiveChatBroadcaster broadcaster) {
 		this.targetServerUrl = targetServerUrl;
 		this.broadcaster = broadcaster;
-		this.httpClient = java.net.http.HttpClient.newBuilder()
-				.connectTimeout(java.time.Duration.ofSeconds(3))
+		this.httpClient = HttpClient.newBuilder()
+				.connectTimeout(Duration.ofSeconds(3))
 				.build();
 	}
 
@@ -37,18 +41,18 @@ public class LlamaPropsService {
 					? targetServerUrl.substring(0, targetServerUrl.length() - 3)
 					: targetServerUrl;
 
-			java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
-					.uri(java.net.URI.create(baseUrl + "/props"))
-					.timeout(java.time.Duration.ofSeconds(3))
+			HttpRequest request = HttpRequest.newBuilder()
+					.uri(URI.create(baseUrl + "/props"))
+					.timeout(Duration.ofSeconds(3))
 					.GET()
 					.build();
 
-			java.net.http.HttpResponse<String> responseStr = httpClient.send(request, java.net.http.HttpResponse.BodyHandlers.ofString());
+			HttpResponse<String> responseStr = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 			
 			if (responseStr.statusCode() >= 200 && responseStr.statusCode() < 300) {
-				com.fasterxml.jackson.databind.JsonNode response = mapper.readTree(responseStr.body());
+				JsonNode response = mapper.readTree(responseStr.body());
 				if (response != null && response.has("default_generation_settings")) {
-					com.fasterxml.jackson.databind.JsonNode settings = response.get("default_generation_settings");
+					JsonNode settings = response.get("default_generation_settings");
 					if (settings.has("n_ctx")) {
 						cachedContextLimit = settings.get("n_ctx").asInt();
 					}

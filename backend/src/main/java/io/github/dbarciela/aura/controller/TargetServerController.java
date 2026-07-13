@@ -10,7 +10,10 @@ import java.io.RandomAccessFile;
 import java.net.URI;
 import java.net.URL;
 import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.file.Files;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -23,6 +26,8 @@ import java.util.zip.ZipInputStream;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -36,9 +41,6 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import io.github.dbarciela.aura.pipeline.NotificationDTO;
 import io.github.dbarciela.aura.pipeline.NotificationService;
@@ -56,7 +58,7 @@ public class TargetServerController {
 	private final NotificationService notificationService;
 	private final AtomicBoolean serverHealthy = new AtomicBoolean(false);
 	private static final Logger log = LoggerFactory.getLogger(TargetServerController.class);
-	private final java.net.http.HttpClient healthHttpClient;
+	private final HttpClient healthHttpClient;
 
 	public TargetServerController(@Value("${target.server.url}") String targetServerUrl,
 			@Value("${target.server.restart-script}") String restartScript,
@@ -76,8 +78,8 @@ public class TargetServerController {
 		factory.setReadTimeout(3000); // 3 seconds timeout to prevent blocking scheduled tasks
 		this.restClient = RestClient.builder().requestFactory(factory).build();
 		
-		this.healthHttpClient = java.net.http.HttpClient.newBuilder()
-				.connectTimeout(java.time.Duration.ofSeconds(3))
+		this.healthHttpClient = HttpClient.newBuilder()
+				.connectTimeout(Duration.ofSeconds(3))
 				.build();
 	}
 
@@ -88,13 +90,13 @@ public class TargetServerController {
 					? targetServerUrl.substring(0, targetServerUrl.length() - 3)
 					: targetServerUrl;
 			
-			java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
+			HttpRequest request = HttpRequest.newBuilder()
 					.uri(URI.create(baseUrl + "/health?include_slots=true"))
-					.timeout(java.time.Duration.ofSeconds(3))
+					.timeout(Duration.ofSeconds(3))
 					.GET()
 					.build();
 			
-			java.net.http.HttpResponse<String> response = this.healthHttpClient.send(request, java.net.http.HttpResponse.BodyHandlers.ofString());
+			HttpResponse<String> response = this.healthHttpClient.send(request, HttpResponse.BodyHandlers.ofString());
 			boolean healthy = response.statusCode() >= 200 && response.statusCode() < 300;
 			serverHealthy.set(healthy);
 			log.trace("[HealthCheck] Target {} is ONLINE. HTTP {}", baseUrl, response.statusCode());
