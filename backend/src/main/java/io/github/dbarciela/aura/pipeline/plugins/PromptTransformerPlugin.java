@@ -1,129 +1,156 @@
 package io.github.dbarciela.aura.pipeline.plugins;
 
-import io.github.dbarciela.aura.config.ProxySettings;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import org.springframework.core.annotation.Order;
+import org.springframework.stereotype.Component;
+
 import io.github.dbarciela.aura.config.PluginSettingsManager;
 import io.github.dbarciela.aura.pipeline.ProxyPlugin;
 import io.github.dbarciela.aura.pipeline.RequestContext;
 import io.github.dbarciela.aura.pipeline.ResponseContext;
-import org.springframework.core.annotation.Order;
-import org.springframework.stereotype.Component;
-
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 @Component
 @Order(30)
 public class PromptTransformerPlugin implements ProxyPlugin {
 
-    private final PluginSettingsManager settingsManager;
+	private final PluginSettingsManager settingsManager;
 
-    public PromptTransformerPlugin(PluginSettingsManager settingsManager) {
-        this.settingsManager = settingsManager;
-    }
+	public PromptTransformerPlugin(PluginSettingsManager settingsManager) {
+		this.settingsManager = settingsManager;
+	}
 
-    public static class PromptReplaceRule {
-        public String regex;
-        public String with;
-        
-        public PromptReplaceRule() {}
-        public PromptReplaceRule(String regex, String with) {
-            this.regex = regex;
-            this.with = with;
-        }
-        
-        public String getRegex() { return regex; }
-        public void setRegex(String regex) { this.regex = regex; }
-        public String getWith() { return with; }
-        public void setWith(String with) { this.with = with; }
-    }
+	public static class PromptReplaceRule {
+		public String regex;
+		public String with;
 
-    public static class TransformerSettings {
-        public java.util.List<PromptReplaceRule> promptReplaceRules = new java.util.ArrayList<>();
-        public java.util.List<PromptReplaceRule> responseReplaceRules = new java.util.ArrayList<>();
-    }
+		public PromptReplaceRule() {
+		}
 
-    @Override
-    public String getId() {
-        return "prompt-transformer";
-    }
+		public PromptReplaceRule(String regex, String with) {
+			this.regex = regex;
+			this.with = with;
+		}
 
-    @Override
-    public String getName() {
-        return "Regex Matcher";
-    }
+		public String getRegex() {
+			return regex;
+		}
 
-    @Override
-    public String getDescription() {
-        return "Modify prompts and responses dynamically using Regex rules.";
-    }
+		public void setRegex(String regex) {
+			this.regex = regex;
+		}
 
-    @Override
-    public Object getDefaultSettings() {
-        return new TransformerSettings();
-    }
+		public String getWith() {
+			return with;
+		}
 
-    @Override
-    public String getUiTabName() { return "Transformer"; }
+		public void setWith(String with) {
+			this.with = with;
+		}
+	}
 
-    @Override
-    public boolean hasUiToggle() { return true; }
+	public static class TransformerSettings {
+		public java.util.List<PromptReplaceRule> promptReplaceRules = new java.util.ArrayList<>();
+		public java.util.List<PromptReplaceRule> responseReplaceRules = new java.util.ArrayList<>();
+	}
 
-    @Override
-    public int getDefaultOrder() { return 30; }
+	@Override
+	public String getId() {
+		return "prompt-transformer";
+	}
 
-    @Override
-    public void processRequest(RequestContext context) {
-        TransformerSettings pluginSettings = settingsManager.getSettingsAs(getId(), TransformerSettings.class);
-        if (pluginSettings == null || pluginSettings.promptReplaceRules.isEmpty()) return;
+	@Override
+	public String getName() {
+		return "Regex Matcher";
+	}
 
-        String currentPayload = context.getPayload();
-        if (currentPayload == null || currentPayload.isEmpty()) return;
+	@Override
+	public String getDescription() {
+		return "Modify prompts and responses dynamically using Regex rules.";
+	}
 
-        for (PromptReplaceRule rule : pluginSettings.promptReplaceRules) {
-            String regex = rule.getRegex();
-            String replacement = rule.getWith();
-            
-            if (regex != null && !regex.isEmpty()) {
-                try {
-                    Pattern pattern = Pattern.compile(regex);
-                    Matcher matcher = pattern.matcher(currentPayload);
-                    
-                    if (matcher.find()) {
-                        currentPayload = matcher.replaceAll(replacement == null ? "" : replacement);
-                    }
-                } catch (Exception e) {
-                    // Ignore regex compilation errors or replacement errors during runtime
-                }
-            }
-        }
-        context.setPayload(currentPayload);
-    }
+	@Override
+	public Object getDefaultSettings() {
+		return new TransformerSettings();
+	}
 
-    @Override
-    public void processResponse(ResponseContext context) {
-        TransformerSettings pluginSettings = settingsManager.getSettingsAs(getId(), TransformerSettings.class);
-        if (pluginSettings == null || pluginSettings.responseReplaceRules.isEmpty()) return;
+	@Override
+	public String getUiTabName() {
+		return "Transformer";
+	}
 
-        String currentPayload = context.getPayload();
-        if (currentPayload == null || currentPayload.isEmpty()) return;
+	@Override
+	public boolean hasUiToggle() {
+		return true;
+	}
 
-        for (PromptReplaceRule rule : pluginSettings.responseReplaceRules) {
-            String regex = rule.getRegex();
-            String replacement = rule.getWith();
-            
-            if (regex != null && !regex.isEmpty()) {
-                try {
-                    Pattern pattern = Pattern.compile(regex);
-                    Matcher matcher = pattern.matcher(currentPayload);
-                    
-                    if (matcher.find()) {
-                        currentPayload = matcher.replaceAll(replacement == null ? "" : replacement);
-                    }
-                } catch (Exception e) {
-                    // Ignore regex compilation errors or replacement errors during runtime
-                }
-            }
-        }
-        context.setPayload(currentPayload);
-    }
+	@Override
+	public int getDefaultOrder() {
+		return 30;
+	}
+
+	@Override
+	public void processRequest(RequestContext context) {
+		TransformerSettings pluginSettings = settingsManager.getSettingsAs(getId(), TransformerSettings.class);
+		if (pluginSettings == null || pluginSettings.promptReplaceRules.isEmpty()) {
+			return;
+		}
+
+		String currentPayload = context.getPayload();
+		if (currentPayload == null || currentPayload.isEmpty()) {
+			return;
+		}
+
+		for (PromptReplaceRule rule : pluginSettings.promptReplaceRules) {
+			String regex = rule.getRegex();
+			String replacement = rule.getWith();
+
+			if (regex != null && !regex.isEmpty()) {
+				try {
+					Pattern pattern = Pattern.compile(regex);
+					Matcher matcher = pattern.matcher(currentPayload);
+
+					if (matcher.find()) {
+						currentPayload = matcher.replaceAll(replacement == null ? "" : replacement);
+					}
+				} catch (Exception e) {
+					// Ignore regex compilation errors or replacement errors during runtime
+				}
+			}
+		}
+		context.setPayload(currentPayload);
+	}
+
+	@Override
+	public void processResponse(ResponseContext context) {
+		TransformerSettings pluginSettings = settingsManager.getSettingsAs(getId(), TransformerSettings.class);
+		if (pluginSettings == null || pluginSettings.responseReplaceRules.isEmpty()) {
+			return;
+		}
+
+		String currentPayload = context.getPayload();
+		if (currentPayload == null || currentPayload.isEmpty()) {
+			return;
+		}
+
+		for (PromptReplaceRule rule : pluginSettings.responseReplaceRules) {
+			String regex = rule.getRegex();
+			String replacement = rule.getWith();
+
+			if (regex != null && !regex.isEmpty()) {
+				try {
+					Pattern pattern = Pattern.compile(regex);
+					Matcher matcher = pattern.matcher(currentPayload);
+
+					if (matcher.find()) {
+						currentPayload = matcher.replaceAll(replacement == null ? "" : replacement);
+					}
+				} catch (Exception e) {
+					// Ignore regex compilation errors or replacement errors during runtime
+				}
+			}
+		}
+		context.setPayload(currentPayload);
+	}
 }

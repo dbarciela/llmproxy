@@ -1,155 +1,165 @@
 package io.github.dbarciela.aura.pipeline;
 
-import org.springframework.stereotype.Component;
-import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
-import com.fasterxml.jackson.databind.ObjectMapper;
-
 import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 
+import org.springframework.stereotype.Component;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 @Component
 public class LiveChatBroadcaster {
 
-    private static final ObjectMapper mapper = new ObjectMapper();
+	private static final ObjectMapper mapper = new ObjectMapper();
 
-    // Mapeamento de Emitters para as suas respetivas filas e threads
-    private final Map<SseEmitter, ClientWorker> clients = new ConcurrentHashMap<>();
+	// Mapeamento de Emitters para as suas respetivas filas e threads
+	private final Map<SseEmitter, ClientWorker> clients = new ConcurrentHashMap<>();
 
-    // State preservation for new clients
-    private String lastRequestId = null;
-    private String lastRequestPayload = null;
-    private String lastDonePayload = null;
-    private final java.util.List<String> lastChunks = java.util.Collections.synchronizedList(new java.util.ArrayList<>());
+	// State preservation for new clients
+	private String lastRequestId = null;
+	private String lastRequestPayload = null;
+	private String lastDonePayload = null;
+	private final java.util.List<String> lastChunks = java.util.Collections
+			.synchronizedList(new java.util.ArrayList<>());
 
-    private record ClientWorker(BlockingQueue<String> queue, Thread thread) {}
+	private record ClientWorker(BlockingQueue<String> queue, Thread thread) {
+	}
 
-    public SseEmitter subscribe() {
-        SseEmitter emitter = new SseEmitter(Long.MAX_VALUE);
-        BlockingQueue<String> queue = new LinkedBlockingQueue<>(); // Fila ilimitada
-        
-        // Push cached state immediately
-        if (lastRequestId != null && lastRequestPayload != null) {
-            String reqMsg = String.format("{\"id\":\"%s\",\"type\":\"%s\",\"data\":%s}", lastRequestId, "REQUEST", lastRequestPayload);
-            queue.offer(reqMsg);
-            
-            if (lastDonePayload != null) {
-                String doneMsg = String.format("{\"id\":\"%s\",\"type\":\"%s\",\"data\":%s}", lastRequestId, "DONE", lastDonePayload);
-                queue.offer(doneMsg);
-            } else {
-                synchronized (lastChunks) {
-                    for (String chunk : lastChunks) {
-                        String chunkMsg = String.format("{\"id\":\"%s\",\"type\":\"%s\",\"data\":%s}", lastRequestId, "CHUNK", chunk);
-                        queue.offer(chunkMsg);
-                    }
-                }
-            }
-        }
+	public SseEmitter subscribe() {
+		SseEmitter emitter = new SseEmitter(Long.MAX_VALUE);
+		BlockingQueue<String> queue = new LinkedBlockingQueue<>(); // Fila ilimitada
 
-        // Inicia UMA única Virtual Thread dedicada exclusivamente a este cliente
-        Thread workerThread = Thread.startVirtualThread(() -> {
-            try {
-                while (!Thread.currentThread().isInterrupted()) {
-                    // O take() bloqueia a Virtual Thread (sem custo de CPU) até haver um chunk novo
-                    String eventMessage = queue.take(); 
-                    emitter.send(SseEmitter.event().name("live-chat").data(eventMessage));
-                }
-            } catch (InterruptedException | IOException e) {
-                removeClient(emitter);
-            }
-        });
+		// Push cached state immediately
+		if (lastRequestId != null && lastRequestPayload != null) {
+			String reqMsg = String.format("{\"id\":\"%s\",\"type\":\"%s\",\"data\":%s}", lastRequestId, "REQUEST",
+					lastRequestPayload);
+			queue.offer(reqMsg);
 
-        clients.put(emitter, new ClientWorker(queue, workerThread));
+			if (lastDonePayload != null) {
+				String doneMsg = String.format("{\"id\":\"%s\",\"type\":\"%s\",\"data\":%s}", lastRequestId, "DONE",
+						lastDonePayload);
+				queue.offer(doneMsg);
+			} else {
+				synchronized (lastChunks) {
+					for (String chunk : lastChunks) {
+						String chunkMsg = String.format("{\"id\":\"%s\",\"type\":\"%s\",\"data\":%s}", lastRequestId,
+								"CHUNK", chunk);
+						queue.offer(chunkMsg);
+					}
+				}
+			}
+		}
 
-        emitter.onCompletion(() -> removeClient(emitter));
-        emitter.onTimeout(() -> removeClient(emitter));
-        emitter.onError(e -> removeClient(emitter));
-        
-        return emitter;
-    }
+		// Inicia UMA única Virtual Thread dedicada exclusivamente a este cliente
+		Thread workerThread = Thread.startVirtualThread(() -> {
+			try {
+				while (!Thread.currentThread().isInterrupted()) {
+					// O take() bloqueia a Virtual Thread (sem custo de CPU) até haver um chunk novo
+					String eventMessage = queue.take();
+					emitter.send(SseEmitter.event().name("live-chat").data(eventMessage));
+				}
+			} catch (InterruptedException | IOException e) {
+				removeClient(emitter);
+			}
+		});
 
-    private void removeClient(SseEmitter emitter) {
-        ClientWorker worker = clients.remove(emitter);
-        if (worker != null) {
-            worker.thread().interrupt(); // Encerra a Virtual Thread se o cliente desligar
-        }
-    }
+		clients.put(emitter, new ClientWorker(queue, workerThread));
 
-    private void pushEventToAll(String eventMessage) {
-        if (clients.isEmpty()) return;
-        for (ClientWorker worker : clients.values()) {
-            worker.queue().offer(eventMessage);
-        }
-    }
+		emitter.onCompletion(() -> removeClient(emitter));
+		emitter.onTimeout(() -> removeClient(emitter));
+		emitter.onError(e -> removeClient(emitter));
 
-    public void broadcastRequest(String id, String payload) {
-        try {
-            this.lastRequestId = id;
-            this.lastRequestPayload = mapper.writeValueAsString(payload);
-            this.lastDonePayload = null;
-            this.lastChunks.clear();
-        } catch (Exception e) {}
-        broadcast(id, "REQUEST", payload);
-    }
+		return emitter;
+	}
 
-    public void broadcastChunk(String id, String chunk) {
-        try {
-            this.lastChunks.add(mapper.writeValueAsString(chunk));
-        } catch (Exception e) {}
-        broadcast(id, "CHUNK", chunk);
-    }
+	private void removeClient(SseEmitter emitter) {
+		ClientWorker worker = clients.remove(emitter);
+		if (worker != null) {
+			worker.thread().interrupt(); // Encerra a Virtual Thread se o cliente desligar
+		}
+	}
 
-    public void broadcastDone(String id, String payload) {
-        try {
-            this.lastDonePayload = mapper.writeValueAsString(payload);
-        } catch (Exception e) {}
-        broadcast(id, "DONE", payload);
-    }
+	private void pushEventToAll(String eventMessage) {
+		if (clients.isEmpty()) {
+			return;
+		}
+		for (ClientWorker worker : clients.values()) {
+			worker.queue().offer(eventMessage);
+		}
+	}
 
-    public void broadcastNotificationData(String jsonPayload) {
-        String eventMessage = String.format("{\"id\":\"%s\",\"type\":\"%s\",\"data\":%s}", 
-            java.util.UUID.randomUUID().toString(), "NOTIFICATION", jsonPayload);
-        pushEventToAll(eventMessage);
-    }
+	public void broadcastRequest(String id, String payload) {
+		try {
+			this.lastRequestId = id;
+			this.lastRequestPayload = mapper.writeValueAsString(payload);
+			this.lastDonePayload = null;
+			this.lastChunks.clear();
+		} catch (Exception e) {
+		}
+		broadcast(id, "REQUEST", payload);
+	}
 
-    public void broadcastHardware(String jsonPayload) {
-        String eventMessage = String.format("{\"id\":\"%s\",\"type\":\"%s\",\"data\":%s}", 
-            java.util.UUID.randomUUID().toString(), "HARDWARE", jsonPayload);
-        pushEventToAll(eventMessage);
-    }
+	public void broadcastChunk(String id, String chunk) {
+		try {
+			this.lastChunks.add(mapper.writeValueAsString(chunk));
+		} catch (Exception e) {
+		}
+		broadcast(id, "CHUNK", chunk);
+	}
 
-    public void broadcastContextLimit(int limit) {
-        String eventMessage = String.format("{\"id\":\"%s\",\"type\":\"%s\",\"data\":%d}", 
-            java.util.UUID.randomUUID().toString(), "CONTEXT_LIMIT", limit);
-        pushEventToAll(eventMessage);
-    }
+	public void broadcastDone(String id, String payload) {
+		try {
+			this.lastDonePayload = mapper.writeValueAsString(payload);
+		} catch (Exception e) {
+		}
+		broadcast(id, "DONE", payload);
+	}
 
-    public void broadcastMetrics(String id, String metricsJson) {
-        String eventMessage = String.format("{\"id\":\"%s\",\"type\":\"%s\",\"data\":%s}", 
-            id, "METRICS", metricsJson);
-        pushEventToAll(eventMessage);
-    }
-    
-    public void broadcastPluginEvent(String pluginId, String eventType, Object payload) {
-        try {
-            String jsonPayload = mapper.writeValueAsString(payload);
-            String eventMessage = String.format("{\"pluginId\":\"%s\",\"type\":\"%s\",\"data\":%s}", 
-                pluginId, eventType, jsonPayload);
-            pushEventToAll(eventMessage);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
+	public void broadcastNotificationData(String jsonPayload) {
+		String eventMessage = String.format("{\"id\":\"%s\",\"type\":\"%s\",\"data\":%s}",
+				java.util.UUID.randomUUID().toString(), "NOTIFICATION", jsonPayload);
+		pushEventToAll(eventMessage);
+	}
 
-    private void broadcast(String id, String type, String data) {
-        try {
-            String safeData = mapper.writeValueAsString(data);
-            String eventMessage = String.format("{\"id\":\"%s\",\"type\":\"%s\",\"data\":%s}", id, type, safeData);
-            pushEventToAll(eventMessage);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
+	public void broadcastHardware(String jsonPayload) {
+		String eventMessage = String.format("{\"id\":\"%s\",\"type\":\"%s\",\"data\":%s}",
+				java.util.UUID.randomUUID().toString(), "HARDWARE", jsonPayload);
+		pushEventToAll(eventMessage);
+	}
+
+	public void broadcastContextLimit(int limit) {
+		String eventMessage = String.format("{\"id\":\"%s\",\"type\":\"%s\",\"data\":%d}",
+				java.util.UUID.randomUUID().toString(), "CONTEXT_LIMIT", limit);
+		pushEventToAll(eventMessage);
+	}
+
+	public void broadcastMetrics(String id, String metricsJson) {
+		String eventMessage = String.format("{\"id\":\"%s\",\"type\":\"%s\",\"data\":%s}", id, "METRICS", metricsJson);
+		pushEventToAll(eventMessage);
+	}
+
+	public void broadcastPluginEvent(String pluginId, String eventType, Object payload) {
+		try {
+			String jsonPayload = mapper.writeValueAsString(payload);
+			String eventMessage = String.format("{\"pluginId\":\"%s\",\"type\":\"%s\",\"data\":%s}", pluginId,
+					eventType, jsonPayload);
+			pushEventToAll(eventMessage);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+
+	private void broadcast(String id, String type, String data) {
+		try {
+			String safeData = mapper.writeValueAsString(data);
+			String eventMessage = String.format("{\"id\":\"%s\",\"type\":\"%s\",\"data\":%s}", id, type, safeData);
+			pushEventToAll(eventMessage);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
 }

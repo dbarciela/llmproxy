@@ -1,9 +1,16 @@
 package io.github.dbarciela.aura.pipeline.plugins;
 
-import io.github.dbarciela.aura.config.PluginSettingsManager;
-import io.github.dbarciela.aura.pipeline.NotificationService;
-import io.github.dbarciela.aura.pipeline.RequestContext;
-import io.github.dbarciela.aura.pipeline.ResponseContext;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.when;
+
+import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
@@ -11,121 +18,119 @@ import org.mockito.MockitoAnnotations;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 
-import java.util.List;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+import io.github.dbarciela.aura.config.PluginSettingsManager;
+import io.github.dbarciela.aura.pipeline.NotificationService;
+import io.github.dbarciela.aura.pipeline.RequestContext;
+import io.github.dbarciela.aura.pipeline.ResponseContext;
 
 public class ManualEditorPluginTest {
 
-    @Mock
-    private PluginSettingsManager settingsManager;
+	@Mock
+	private PluginSettingsManager settingsManager;
 
-    @Mock
-    private NotificationService notificationService;
+	@Mock
+	private NotificationService notificationService;
 
-    private ManualEditorPlugin plugin;
-    private ManualEditorPlugin.ManualEditorSettings settings;
+	private ManualEditorPlugin plugin;
+	private ManualEditorPlugin.ManualEditorSettings settings;
 
-    @BeforeEach
-    public void setup() {
-        MockitoAnnotations.openMocks(this);
-        plugin = new ManualEditorPlugin(settingsManager, notificationService);
-        settings = new ManualEditorPlugin.ManualEditorSettings();
-        when(settingsManager.getSettingsAs(eq("manual-editor"), eq(ManualEditorPlugin.ManualEditorSettings.class)))
-                .thenReturn(settings);
-    }
+	@BeforeEach
+	public void setup() {
+		MockitoAnnotations.openMocks(this);
+		plugin = new ManualEditorPlugin(settingsManager, notificationService);
+		settings = new ManualEditorPlugin.ManualEditorSettings();
+		when(settingsManager.getSettingsAs(eq("manual-editor"), eq(ManualEditorPlugin.ManualEditorSettings.class)))
+				.thenReturn(settings);
+	}
 
-    @Test
-    public void testProcessRequest_NotIntercepting() {
-        settings.enabled = false;
-        RequestContext req = new RequestContext(HttpMethod.POST, "/v1/chat", new HttpHeaders(), "payload");
+	@Test
+	public void testProcessRequest_NotIntercepting() {
+		settings.enabled = false;
+		RequestContext req = new RequestContext(HttpMethod.POST, "/v1/chat", new HttpHeaders(), "payload");
 
-        plugin.processRequest(req);
+		plugin.processRequest(req);
 
-        assertEquals(0, plugin.getQueue().size());
-        assertFalse(req.isDropped());
-    }
+		assertEquals(0, plugin.getQueue().size());
+		assertFalse(req.isDropped());
+	}
 
-    @Test
-    public void testProcessRequest_InterceptAll() throws InterruptedException {
-        settings.enabled = true;
-        RequestContext req = new RequestContext(HttpMethod.POST, "/v1/chat", new HttpHeaders(), "payload");
+	@Test
+	public void testProcessRequest_InterceptAll() throws InterruptedException {
+		settings.enabled = true;
+		RequestContext req = new RequestContext(HttpMethod.POST, "/v1/chat", new HttpHeaders(), "payload");
 
-        ExecutorService executor = Executors.newSingleThreadExecutor();
-        executor.submit(() -> plugin.processRequest(req));
+		ExecutorService executor = Executors.newSingleThreadExecutor();
+		executor.submit(() -> plugin.processRequest(req));
 
-        // Wait for thread to hit the latch
-        Thread.sleep(100);
+		// Wait for thread to hit the latch
+		Thread.sleep(100);
 
-        assertEquals(1, plugin.getQueue().size());
-        assertEquals(req.getId() + "-req", plugin.getQueue().get(0).getId());
+		assertEquals(1, plugin.getQueue().size());
+		assertEquals(req.getId() + "-req", plugin.getQueue().get(0).getId());
 
-        // Release manually
-        plugin.release(req.getId() + "-req", "new-payload");
+		// Release manually
+		plugin.release(req.getId() + "-req", "new-payload");
 
-        executor.shutdown();
-        executor.awaitTermination(1, TimeUnit.SECONDS);
+		executor.shutdown();
+		executor.awaitTermination(1, TimeUnit.SECONDS);
 
-        assertEquals("new-payload", req.getPayload());
-        assertEquals(0, plugin.getQueue().size());
-    }
+		assertEquals("new-payload", req.getPayload());
+		assertEquals(0, plugin.getQueue().size());
+	}
 
-    @Test
-    public void testProcessResponse_InterceptInvalidJson() throws InterruptedException {
-        settings.enabled = true;
-        settings.interceptInvalidJson = true;
+	@Test
+	public void testProcessResponse_InterceptInvalidJson() throws InterruptedException {
+		settings.enabled = true;
+		settings.interceptInvalidJson = true;
 
-        RequestContext req = new RequestContext(HttpMethod.POST, "/v1/chat", new HttpHeaders(), "req-payload");
-        ResponseContext res = new ResponseContext(req, 200, new HttpHeaders(), "invalid { json");
+		RequestContext req = new RequestContext(HttpMethod.POST, "/v1/chat", new HttpHeaders(), "req-payload");
+		ResponseContext res = new ResponseContext(req, 200, new HttpHeaders(), "invalid { json");
 
-        ExecutorService executor = Executors.newSingleThreadExecutor();
-        executor.submit(() -> plugin.processResponse(res));
+		ExecutorService executor = Executors.newSingleThreadExecutor();
+		executor.submit(() -> plugin.processResponse(res));
 
-        Thread.sleep(100);
+		Thread.sleep(100);
 
-        assertEquals(1, plugin.getQueue().size());
-        
-        plugin.drop(req.getId() + "-res");
+		assertEquals(1, plugin.getQueue().size());
 
-        executor.shutdown();
-        executor.awaitTermination(1, TimeUnit.SECONDS);
+		plugin.drop(req.getId() + "-res");
 
-        assertTrue(req.isDropped());
-    }
+		executor.shutdown();
+		executor.awaitTermination(1, TimeUnit.SECONDS);
 
-    @Test
-    public void testProcessRequest_RegexMatch() throws InterruptedException {
-        settings.enabled = true;
-        settings.interceptRegexRules = List.of("bad-word");
+		assertTrue(req.isDropped());
+	}
 
-        RequestContext req = new RequestContext(HttpMethod.POST, "/v1/chat", new HttpHeaders(), "this has a bad-word in it");
+	@Test
+	public void testProcessRequest_RegexMatch() throws InterruptedException {
+		settings.enabled = true;
+		settings.interceptRegexRules = List.of("bad-word");
 
-        ExecutorService executor = Executors.newSingleThreadExecutor();
-        executor.submit(() -> plugin.processRequest(req));
+		RequestContext req = new RequestContext(HttpMethod.POST, "/v1/chat", new HttpHeaders(),
+				"this has a bad-word in it");
 
-        Thread.sleep(100);
+		ExecutorService executor = Executors.newSingleThreadExecutor();
+		executor.submit(() -> plugin.processRequest(req));
 
-        assertEquals(1, plugin.getQueue().size());
-        plugin.release(req.getId() + "-req", "fixed payload");
+		Thread.sleep(100);
 
-        executor.shutdown();
-        executor.awaitTermination(1, TimeUnit.SECONDS);
-    }
+		assertEquals(1, plugin.getQueue().size());
+		plugin.release(req.getId() + "-req", "fixed payload");
 
-    @Test
-    public void testProcessRequest_RegexNoMatch() {
-        settings.enabled = true;
-        settings.interceptRegexRules = List.of("bad-word");
+		executor.shutdown();
+		executor.awaitTermination(1, TimeUnit.SECONDS);
+	}
 
-        RequestContext req = new RequestContext(HttpMethod.POST, "/v1/chat", new HttpHeaders(), "this is clean");
+	@Test
+	public void testProcessRequest_RegexNoMatch() {
+		settings.enabled = true;
+		settings.interceptRegexRules = List.of("bad-word");
 
-        plugin.processRequest(req);
+		RequestContext req = new RequestContext(HttpMethod.POST, "/v1/chat", new HttpHeaders(), "this is clean");
 
-        // Should not block or add to queue
-        assertEquals(0, plugin.getQueue().size());
-    }
+		plugin.processRequest(req);
+
+		// Should not block or add to queue
+		assertEquals(0, plugin.getQueue().size());
+	}
 }

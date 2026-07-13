@@ -1,24 +1,25 @@
 package io.github.dbarciela.aura.controller;
 
-import io.github.dbarciela.aura.pipeline.plugins.ContextDeduplicatorPlugin;
+import java.util.Map;
+
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.Map;
+import io.github.dbarciela.aura.pipeline.plugins.ContextDeduplicatorPlugin;
 
 @RestController
 @RequestMapping("/api/proxy/plugins/context-deduplicator")
 public class ContextDeduplicatorController {
 
-    private final ContextDeduplicatorPlugin plugin;
+	private final ContextDeduplicatorPlugin plugin;
 
-    public ContextDeduplicatorController(ContextDeduplicatorPlugin plugin) {
-        this.plugin = plugin;
-    }
+	public ContextDeduplicatorController(ContextDeduplicatorPlugin plugin) {
+		this.plugin = plugin;
+	}
 
-    @GetMapping("/stats")
-    public Map<String, Object> getStats() {
-        return plugin.getStats();
-    }
+	@GetMapping("/stats")
+	public Map<String, Object> getStats() {
+		return plugin.getStats();
+	}
 }
