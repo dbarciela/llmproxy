@@ -75,22 +75,43 @@ public class TargetServerController {
 	@Scheduled(fixedRate = 5000)
 	public void checkHealth() {
 		try {
-			// Strip /v1 to check health endpoint
 			String baseUrl = targetServerUrl.endsWith("/v1")
 					? targetServerUrl.substring(0, targetServerUrl.length() - 3)
 					: targetServerUrl;
-
-			ResponseEntity<String> response = restClient.get().uri(baseUrl + "/health?include_slots=true").retrieve()
-					.toEntity(String.class);
-			serverHealthy.set(response.getStatusCode().is2xxSuccessful());
+			
+			java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
+					.uri(URI.create(baseUrl + "/health?include_slots=true"))
+					.timeout(java.time.Duration.ofSeconds(3))
+					.GET()
+					.build();
+			
+			java.net.http.HttpClient client = java.net.http.HttpClient.newHttpClient();
+			java.net.http.HttpResponse<String> response = client.send(request, java.net.http.HttpResponse.BodyHandlers.ofString());
+			
+			serverHealthy.set(response.statusCode() >= 200 && response.statusCode() < 300);
 		} catch (Exception e) {
 			serverHealthy.set(false);
+			System.err.println("Health check failed: " + e.getClass().getName() + " - " + e.getMessage());
 		}
 	}
 
 	@GetMapping("/health")
 	public boolean getHealth() {
 		return serverHealthy.get();
+	}
+
+	@GetMapping("/test-health")
+	public String testHealth() {
+		try {
+			String baseUrl = targetServerUrl.endsWith("/v1")
+					? targetServerUrl.substring(0, targetServerUrl.length() - 3)
+					: targetServerUrl;
+			ResponseEntity<String> response = restClient.get().uri(baseUrl + "/health?include_slots=true").retrieve()
+					.toEntity(String.class);
+			return "OK: " + response.getStatusCode() + " - " + response.getBody();
+		} catch (Exception e) {
+			return "ERROR: " + e.getClass().getName() + " - " + e.getMessage();
+		}
 	}
 
 	@GetMapping("/target-url")

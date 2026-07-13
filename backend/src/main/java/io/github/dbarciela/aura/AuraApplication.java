@@ -18,7 +18,10 @@ public class AuraApplication {
 	}
 
 	@EventListener(ApplicationReadyEvent.class)
-	public void openBrowser() {
+	public void openBrowser(ApplicationReadyEvent event) {
+		if (!event.getApplicationContext().getEnvironment().getProperty("aura.browser.auto-open", Boolean.class, true)) {
+			return;
+		}
 		try {
 			new ProcessBuilder("cmd", "/c", "start http://localhost:8081").start();
 		} catch (IOException e) {
