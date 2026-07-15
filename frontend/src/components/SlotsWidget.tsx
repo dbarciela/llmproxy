@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { Layers, Activity, Server, Eye, EyeOff, Hash, Percent } from 'lucide-react';
 import { sseService } from '../services/sseService';
 import { registerCommand, commandRegistry } from '../plugins/PluginRegistry';
@@ -22,9 +22,7 @@ interface SlotData {
 
 export function SlotsWidget() {
   const [slots, setSlots] = useState<SlotData[]>([]);
-  const [rates, setRates] = useState<Record<number, { pp: number, ts: number }>>({});
   const [globalMetrics, setGlobalMetrics] = useState<any>(null);
-  const historyRef = useRef<Record<number, { time: number, processed: number, decoded: number }>>({});
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [visibleStats, setVisibleStats] = useState(() => {
@@ -54,33 +52,6 @@ export function SlotsWidget() {
         try {
           const data = typeof payload.data === 'string' ? JSON.parse(payload.data) : payload.data;
           if (Array.isArray(data)) {
-            const now = Date.now();
-            const history = historyRef.current;
-            
-            setRates((prevRates) => {
-              const newRates = { ...prevRates };
-              data.forEach((slot: SlotData) => {
-                const decoded = slot.next_token && slot.next_token.length > 0 ? slot.next_token[0].n_decoded : 0;
-                const processed = slot.n_prompt_tokens_processed || 0;
-                
-                if (history[slot.id]) {
-                  const prev = history[slot.id];
-                  const deltaSeconds = (now - prev.time) / 1000;
-                  if (deltaSeconds > 0) {
-                    const pp = Math.max(0, Math.round((processed - prev.processed) / deltaSeconds));
-                    const ts = Math.max(0, Math.round((decoded - prev.decoded) / deltaSeconds));
-                    // Only update if there's actually processing happening, otherwise keep previous rate (or 0 if idle)
-                    newRates[slot.id] = { 
-                      pp: processed > prev.processed ? pp : 0, 
-                      ts: decoded > prev.decoded ? ts : 0 
-                    };
-                  }
-                }
-                history[slot.id] = { time: now, processed, decoded };
-              });
-              return newRates;
-            });
-
             setSlots(data);
           }
         } catch (err) {
@@ -328,25 +299,13 @@ export function SlotsWidget() {
                             </div>
                           </div>
 
-                          <div className="grid grid-cols-3 gap-4 pt-2 border-t border-gray-700">
+                          <div className="grid grid-cols-2 gap-4 pt-2 border-t border-gray-700">
                             <div>
                               <div className="text-[10px] uppercase text-gray-500 font-bold mb-1 tracking-wider">Tokens</div>
                               <div className="text-sm font-mono text-gray-300">
                                 <span className="text-blue-400" title="Prompt Tokens">{n_prompt.toLocaleString()}</span>
                                 <span className="text-gray-600 mx-1">+</span>
                                 <span className="text-green-400" title="Generated Tokens">{decoded.toLocaleString()}</span>
-                              </div>
-                            </div>
-                            <div>
-                              <div className="text-[10px] uppercase text-gray-500 font-bold mb-1 tracking-wider">Speed</div>
-                              <div className="text-sm font-mono text-gray-300">
-                                {isProcessing && rates[slot.id]?.pp > 0 ? (
-                                  <span className="text-blue-400" title="Prompt Processing Rate">{rates[slot.id].pp} t/s</span>
-                                ) : isGenerating && rates[slot.id]?.ts > 0 ? (
-                                  <span className="text-green-400" title="Token Generation Rate">{rates[slot.id].ts} t/s</span>
-                                ) : (
-                                  <span className="text-gray-600">-</span>
-                                )}
                               </div>
                             </div>
                             <div>
