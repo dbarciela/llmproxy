@@ -27,20 +27,25 @@ export function SlotsWidget() {
   const historyRef = useRef<Record<number, { time: number, processed: number, decoded: number }>>({});
 
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [showInStatusBar, setShowInStatusBar] = useState(() => {
+  const [visibleStats, setVisibleStats] = useState(() => {
     try {
-      const saved = localStorage.getItem('slots_widget_visible');
-      return saved !== 'false'; // Default true
-    } catch {
-      return true;
-    }
+      const saved = localStorage.getItem('metrics_visible_stats');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return {
+      activeSlots: true,
+      avgCtx: true,
+      globalPp: false,
+      globalTg: false
+    };
   });
 
-  const toggleVisibility = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    const newVal = !showInStatusBar;
-    setShowInStatusBar(newVal);
-    localStorage.setItem('slots_widget_visible', newVal.toString());
+  const toggleStat = (key: string) => {
+    setVisibleStats((prev: any) => {
+      const next = { ...prev, [key]: !prev[key] };
+      localStorage.setItem('metrics_visible_stats', JSON.stringify(next));
+      return next;
+    });
   };
 
   useEffect(() => {
@@ -123,35 +128,58 @@ export function SlotsWidget() {
   return (
     <>
       <div 
-        className={`flex items-center space-x-2 text-xs font-mono transition-colors ${showInStatusBar ? 'text-gray-400 hover:text-gray-200 cursor-pointer' : 'text-gray-600 cursor-pointer'}`}
+        className={`flex items-center space-x-2 text-xs font-mono transition-colors text-gray-400 hover:text-gray-200 cursor-pointer`}
         onClick={() => setIsModalOpen(true)}
-        title={showInStatusBar ? "Click to open Metrics" : "Metrics are hidden. Click to open."}
+        title="Click to open Metrics"
       >
-        <Layers className={`w-3.5 h-3.5 ${showInStatusBar ? 'text-orange-400' : 'text-gray-600'}`} />
+        <Layers className={`w-3.5 h-3.5 text-orange-400`} />
         
-        {showInStatusBar ? (
+        <span className="font-bold text-gray-300">Metrics</span>
+        
+        {visibleStats.activeSlots && (
+          <span className={activeSlots.length > 0 ? 'text-orange-400 font-bold' : 'text-gray-500'}>
+            {activeSlots.length}/{slots.length || '-'}
+          </span>
+        )}
+        
+        {activeSlots.length > 0 && (
           <>
-            <span className="font-bold text-gray-300">Metrics</span>
-            <span className={activeSlots.length > 0 ? 'text-orange-400 font-bold' : 'text-gray-500'}>
-              {activeSlots.length}/{slots.length || '-'}
-            </span>
-            
-            {activeSlots.length > 0 && (
+            {visibleStats.avgCtx && (
               <>
                 <div className="w-px h-3 bg-gray-700 mx-1"></div>
                 <span className="text-gray-400">CTX</span>
                 <span className={`${avgCtxPercent > 80 ? 'text-red-400' : avgCtxPercent > 50 ? 'text-yellow-400' : 'text-green-400'}`}>
                   {avgCtxPercent}%
                 </span>
-                
-                {activeSlots.some(s => s.is_processing && (s.n_prompt_tokens_processed || 0) < (s.n_prompt_tokens || 0)) && (
-                  <span title="Processing Prompt"><Activity className="w-3.5 h-3.5 text-blue-400 animate-pulse ml-1" /></span>
-                )}
+              </>
+            )}
+            
+            {activeSlots.some(s => {
+              const decoded = s.next_token && s.next_token.length > 0 ? s.next_token[0].n_decoded : 0;
+              return s.is_processing && decoded === 0;
+            }) && (
+              <span title="Processing Prompt"><Activity className="w-3.5 h-3.5 text-blue-400 animate-pulse ml-1" /></span>
+            )}
+          </>
+        )}
+
+        {globalMetrics && !globalMetrics.error && (
+          <>
+            {visibleStats.globalPp && (
+              <>
+                <div className="w-px h-3 bg-gray-700 mx-1"></div>
+                <span className="text-gray-400" title="Global Prompt Processing">PP</span>
+                <span className="text-blue-400 font-mono">{globalMetrics.prompt_tokens_seconds?.toFixed(1) || 0}</span>
+              </>
+            )}
+            {visibleStats.globalTg && (
+              <>
+                <div className="w-px h-3 bg-gray-700 mx-1"></div>
+                <span className="text-gray-400" title="Global Token Generation">TG</span>
+                <span className="text-green-400 font-mono">{globalMetrics.predicted_tokens_seconds?.toFixed(1) || 0}</span>
               </>
             )}
           </>
-        ) : (
-          <span className="text-[10px] uppercase">Metrics Hidden</span>
         )}
       </div>
 
@@ -171,14 +199,6 @@ export function SlotsWidget() {
                 </div>
               </div>
               <div className="flex items-center space-x-3">
-                <button
-                  onClick={toggleVisibility}
-                  className="flex items-center space-x-1 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-md text-xs font-medium transition-colors border border-gray-700"
-                  title="Toggle visibility in the bottom status bar"
-                >
-                  {showInStatusBar ? <Eye className="w-3.5 h-3.5 mr-1" /> : <EyeOff className="w-3.5 h-3.5 mr-1" />}
-                  {showInStatusBar ? 'Hide from Status Bar' : 'Show in Status Bar'}
-                </button>
                 <button
                   onClick={() => setIsModalOpen(false)}
                   className="text-gray-400 hover:text-white px-3 py-1 bg-gray-800 rounded-md border border-gray-700 hover:bg-gray-700 transition-colors text-sm"
@@ -200,11 +220,21 @@ export function SlotsWidget() {
                   <div className="text-xs uppercase text-gray-500 font-bold tracking-wider mb-3">Global Server Health</div>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                      <div>
-                       <div className="text-[10px] text-gray-500 uppercase tracking-widest">Global PP</div>
+                       <div className="text-[10px] text-gray-500 uppercase tracking-widest flex items-center justify-between group">
+                         <span>Global PP</span>
+                         <button onClick={(e) => { e.stopPropagation(); toggleStat('globalPp'); }} className={`p-0.5 rounded transition-colors ${visibleStats.globalPp ? 'text-orange-400 bg-orange-400/10' : 'text-gray-600 hover:text-gray-400'}`} title="Toggle in status bar">
+                           {visibleStats.globalPp ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
+                         </button>
+                       </div>
                        <div className="text-lg font-mono text-blue-400">{globalMetrics.prompt_tokens_seconds?.toFixed(1) || 0} <span className="text-xs text-gray-500">t/s</span></div>
                      </div>
                      <div>
-                       <div className="text-[10px] text-gray-500 uppercase tracking-widest">Global TG</div>
+                       <div className="text-[10px] text-gray-500 uppercase tracking-widest flex items-center justify-between group">
+                         <span>Global TG</span>
+                         <button onClick={(e) => { e.stopPropagation(); toggleStat('globalTg'); }} className={`p-0.5 rounded transition-colors ${visibleStats.globalTg ? 'text-orange-400 bg-orange-400/10' : 'text-gray-600 hover:text-gray-400'}`} title="Toggle in status bar">
+                           {visibleStats.globalTg ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
+                         </button>
+                       </div>
                        <div className="text-lg font-mono text-green-400">{globalMetrics.predicted_tokens_seconds?.toFixed(1) || 0} <span className="text-xs text-gray-500">t/s</span></div>
                      </div>
                      <div>
@@ -219,6 +249,24 @@ export function SlotsWidget() {
                 </div>
               )}
 
+              <div className="flex items-center justify-between px-2 pb-2 mt-4">
+                <div className="text-sm font-bold text-gray-300">Individual Slots</div>
+                <div className="flex space-x-4">
+                  <div className="text-[10px] text-gray-500 uppercase tracking-widest flex items-center space-x-2">
+                    <span>Active Slots Status</span>
+                    <button onClick={(e) => { e.stopPropagation(); toggleStat('activeSlots'); }} className={`p-0.5 rounded transition-colors ${visibleStats.activeSlots ? 'text-orange-400 bg-orange-400/10' : 'text-gray-600 hover:text-gray-400'}`} title="Toggle in status bar">
+                      {visibleStats.activeSlots ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
+                    </button>
+                  </div>
+                  <div className="text-[10px] text-gray-500 uppercase tracking-widest flex items-center space-x-2">
+                    <span>Average Context</span>
+                    <button onClick={(e) => { e.stopPropagation(); toggleStat('avgCtx'); }} className={`p-0.5 rounded transition-colors ${visibleStats.avgCtx ? 'text-orange-400 bg-orange-400/10' : 'text-gray-600 hover:text-gray-400'}`} title="Toggle in status bar">
+                      {visibleStats.avgCtx ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
               {slots.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 text-gray-500">
                   <Activity className="w-12 h-12 mb-4 opacity-20" />
@@ -229,12 +277,11 @@ export function SlotsWidget() {
                   {slots.map((slot) => {
                     const decoded = slot.next_token && slot.next_token.length > 0 ? slot.next_token[0].n_decoded : 0;
                     const n_prompt = slot.n_prompt_tokens || 0;
-                    const n_processed = slot.n_prompt_tokens_processed || 0;
                     const used = n_prompt + decoded;
                     const percent = Math.min(100, Math.round((used / slot.n_ctx) * 100));
                     
-                    const isProcessing = slot.is_processing && n_processed < n_prompt;
-                    const isGenerating = slot.is_processing && n_processed >= n_prompt;
+                    const isGenerating = slot.is_processing && decoded > 0;
+                    const isProcessing = slot.is_processing && decoded === 0;
                     const isIdle = !slot.is_processing;
 
                     return (
