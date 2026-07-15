@@ -26,7 +26,7 @@ export function QueuePanel({
   const [queue, setQueue] = useState<RequestContext[]>([]);
 
   const fetchQueue = () => {
-    fetch('/api/proxy/queue')
+    fetch('/api/proxy/queue', { cache: 'no-store' })
       .then(res => res.json())
       .then(data => setQueue(data))
       .catch(err => console.error("Error fetching queue", err));

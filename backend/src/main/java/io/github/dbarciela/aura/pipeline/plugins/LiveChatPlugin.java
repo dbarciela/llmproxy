@@ -4,7 +4,7 @@ import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 import io.github.dbarciela.aura.pipeline.AsyncPlugin;
-import io.github.dbarciela.aura.pipeline.LiveChatBroadcaster;
+import io.github.dbarciela.aura.pipeline.SseBroadcaster;
 import io.github.dbarciela.aura.pipeline.RequestContext;
 import io.github.dbarciela.aura.pipeline.ResponseContext;
 
@@ -16,9 +16,9 @@ public class LiveChatPlugin implements AsyncPlugin {
 		public boolean enabled = true;
 	}
 
-	private final LiveChatBroadcaster broadcaster;
+	private final SseBroadcaster broadcaster;
 
-	public LiveChatPlugin(LiveChatBroadcaster broadcaster) {
+	public LiveChatPlugin(SseBroadcaster broadcaster) {
 		this.broadcaster = broadcaster;
 	}
 

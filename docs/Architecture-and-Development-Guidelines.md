@@ -17,10 +17,16 @@ Plugins encapsulate discrete features and can mutate the request or intercept th
 - **`BufferingPlugin`:** For plugins that need to inspect or modify the full streaming response before releasing it (e.g., `FormatFixerPlugin`).
 - **`StreamingPlugin`:** For plugins that need to read chunks in real-time without buffering them (e.g., `LiveChatPlugin`).
 
-### 1.3 Concurrency & Threads
+### 1.3 SSE Communication (`SseBroadcaster.java`)
+The backend communicates asynchronous events to the frontend via Server-Sent Events using a single, multiplexed stream:
+- **`SseBroadcaster`**: A singleton component that manages active `SseEmitter` clients.
+- **Virtual Threads**: Each client is assigned a single Virtual Thread connected to an unbounded `BlockingQueue`. This allows the server to buffer bursts of events without tying up OS threads.
+- **State Replay**: When a new client connects, the `SseBroadcaster` immediately replays the cached state (e.g., the last `REQUEST` payload, `CHUNK`s, or `DONE` event) so the frontend UI rehydrates instantly without data gaps.
+
+### 1.4 Concurrency & Threads
 - **Virtual Threads:** Enabled via `spring.threads.virtual.enabled=true`. All requests, SSE streams, and async operations are inherently lightweight.
-- **Blocking Operations:** Because we use Virtual Threads, blocking operations (e.g., `Thread.sleep` or synchronous HTTP calls) are safe and do not cause thread starvation.
-- **`TargetServerController`:** Manages the Llama.cpp process. Logs and health checks use Virtual Threads to continuously poll without overhead.
+- **Blocking Operations:** Because we use Virtual Threads, blocking operations (e.g., `Thread.sleep`, `queue.take()`, or synchronous HTTP calls) are safe and do not cause thread starvation.
+- **Target Polling:** Services like `TargetServerController`, `SlotsMonitorService`, and `MetricsMonitorService` use Virtual Threads to continuously poll the LLM Server `/slots` and `/metrics` without overhead.
 
 ---
 
@@ -35,7 +41,8 @@ The UI is modular. Plugins register their tabs, configuration components, and co
 ### 2.2 Server-Sent Events (SSE)
 - **Problem:** Browsers limit concurrent HTTP/1.1 connections to the same host (usually 6).
 - **Solution:** `sseService.ts` implements a Singleton pattern. It opens exactly **one** `EventSource` connection to `/api/proxy/live` and dispatches payloads to any subscribed React component.
-- **Rule:** **Never** instantiate `new EventSource()` directly inside a component. Always use `sseService.subscribe()`.
+- **Stateful Caching:** `sseService.ts` intercepts and caches the latest payload of key events (like `SLOTS` or `REQUEST`), dispatching them immediately to new components that subscribe late (e.g., when a Modal opens).
+- **Rule:** **Never** instantiate `new EventSource()` directly inside a component unless for a completely separate stream (like target-logs). Always use `sseService.subscribe()`.
 
 ### 2.3 UX & Styling
 - **Tailwind CSS:** Used for all styling.

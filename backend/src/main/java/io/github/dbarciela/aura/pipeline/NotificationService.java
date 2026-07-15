@@ -12,11 +12,11 @@ import io.github.dbarciela.aura.db.NotificationRepository;
 @Service
 public class NotificationService {
 
-	private final LiveChatBroadcaster broadcaster;
+	private final SseBroadcaster broadcaster;
 	private final NotificationRepository repository;
 	private String activeTab = "intercept";
 
-	public NotificationService(LiveChatBroadcaster broadcaster, NotificationRepository repository) {
+	public NotificationService(SseBroadcaster broadcaster, NotificationRepository repository) {
 		this.broadcaster = broadcaster;
 		this.repository = repository;
 	}

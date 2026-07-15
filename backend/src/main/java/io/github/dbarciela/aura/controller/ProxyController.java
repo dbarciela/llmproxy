@@ -22,7 +22,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.RestClient;
 
-import io.github.dbarciela.aura.pipeline.LiveChatBroadcaster;
+import io.github.dbarciela.aura.pipeline.SseBroadcaster;
 import io.github.dbarciela.aura.pipeline.ProxyPipeline;
 import io.github.dbarciela.aura.pipeline.RequestContext;
 import io.github.dbarciela.aura.pipeline.ResponseContext;
@@ -33,13 +33,13 @@ public class ProxyController {
 	private final ProxyPipeline pipeline;
 	private final RestClient restClient;
 	private final String targetServerUrl;
-	private final LiveChatBroadcaster liveChatBroadcaster;
+	private final SseBroadcaster SseBroadcaster;
 
 	public ProxyController(ProxyPipeline pipeline,
-			LiveChatBroadcaster liveChatBroadcaster,
+			SseBroadcaster SseBroadcaster,
 			@Value("${target.server.url}") String targetServerUrl) {
 		this.pipeline = pipeline;
-		this.liveChatBroadcaster = liveChatBroadcaster;
+		this.SseBroadcaster = SseBroadcaster;
 		this.targetServerUrl = targetServerUrl;
 
 		// Use JdkClientHttpRequestFactory to support Virtual Threads natively
@@ -239,7 +239,7 @@ public class ProxyController {
 					"{\"ttft\":%d, \"totalTime\":%d, \"promptTokens\":%d, \"completionTokens\":%d, \"totalTokens\":%d, \"tokensPerSec\":%.2f}",
 					ttft, totalTime, promptTokens, completionTokens, totalTokens, tokensPerSec);
 
-			liveChatBroadcaster.broadcastMetrics(reqId, metricsJson);
+			SseBroadcaster.broadcastMetrics(reqId, metricsJson);
 		} catch (Exception e) {
 			e.printStackTrace();
 		}

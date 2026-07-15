@@ -20,7 +20,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 
 import io.github.dbarciela.aura.config.PluginSettingsManager;
-import io.github.dbarciela.aura.pipeline.LiveChatBroadcaster;
+import io.github.dbarciela.aura.pipeline.SseBroadcaster;
 import io.github.dbarciela.aura.pipeline.RequestContext;
 
 @ExtendWith(MockitoExtension.class)
@@ -30,7 +30,7 @@ class ContextDeduplicatorPluginTest {
 	private PluginSettingsManager settingsManager;
 
 	@Mock
-	private LiveChatBroadcaster broadcaster;
+	private SseBroadcaster broadcaster;
 
 	private ContextDeduplicatorPlugin plugin;
 	private RequestContext requestContext;

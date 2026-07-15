@@ -22,11 +22,11 @@ public class LlamaPropsService {
 	private final HttpClient httpClient;
 	private final ObjectMapper mapper = new ObjectMapper();
 	private final String targetServerUrl;
-	private final LiveChatBroadcaster broadcaster;
+	private final SseBroadcaster broadcaster;
 
 	private Integer cachedContextLimit;
 
-	public LlamaPropsService(@Value("${target.server.url}") String targetServerUrl, LiveChatBroadcaster broadcaster) {
+	public LlamaPropsService(@Value("${target.server.url}") String targetServerUrl, SseBroadcaster broadcaster) {
 		this.targetServerUrl = targetServerUrl;
 		this.broadcaster = broadcaster;
 		this.httpClient = HttpClient.newBuilder()

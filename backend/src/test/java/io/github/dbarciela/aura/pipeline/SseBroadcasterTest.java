@@ -7,13 +7,13 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
-public class LiveChatBroadcasterTest {
+public class SseBroadcasterTest {
 
-	private LiveChatBroadcaster broadcaster;
+	private SseBroadcaster broadcaster;
 
 	@BeforeEach
 	public void setup() {
-		broadcaster = new LiveChatBroadcaster();
+		broadcaster = new SseBroadcaster();
 	}
 
 	@Test

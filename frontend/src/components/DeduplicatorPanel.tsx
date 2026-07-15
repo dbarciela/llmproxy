@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ChevronDown, ChevronRight, Activity, Scissors } from 'lucide-react';
+import { sseService } from '../services/sseService';
 
 interface DeduplicatorPanelProps {
   settings: any;
@@ -45,34 +46,26 @@ export function DeduplicatorPanel({ settings, updateSettings }: DeduplicatorPane
   }, []);
 
   useEffect(() => {
-    const eventSource = new EventSource('/api/proxy/stream');
-    eventSource.addEventListener('live-chat', (e: any) => {
-      try {
-        const payload = JSON.parse(e.data);
-        if (payload.type === 'DEDUPLICATION_STATS') {
-          const stats = payload.data;
-          if (stats.savedChars) {
-            setTotalSavedChars(prev => prev + stats.savedChars);
-          }
-          if (stats.totalOriginalChars) {
-            setTotalOriginalChars(prev => prev + stats.totalOriginalChars);
-          }
-          if (stats.blocks) {
-            const newBlocks: DeduplicatedBlock[] = Object.entries(stats.blocks).map(([id, text]) => ({
-              id,
-              originalText: text as string
-            }));
-            setBlocks(prev => [...newBlocks, ...prev].slice(0, 50)); // keep last 50
-          }
+    const unsubscribe = sseService.subscribe((payload: any) => {
+      if (payload.type === 'DEDUPLICATION_STATS') {
+        const stats = payload.data;
+        if (stats.savedChars) {
+          setTotalSavedChars(prev => prev + stats.savedChars);
         }
-      } catch (err) {
-        console.error(err);
+        if (stats.totalOriginalChars) {
+          setTotalOriginalChars(prev => prev + stats.totalOriginalChars);
+        }
+        if (stats.blocks) {
+          const newBlocks: DeduplicatedBlock[] = Object.entries(stats.blocks).map(([id, text]) => ({
+            id,
+            originalText: text as string
+          }));
+          setBlocks(prev => [...newBlocks, ...prev].slice(0, 50)); // keep last 50
+        }
       }
     });
 
-    return () => {
-      eventSource.close();
-    };
+    return () => unsubscribe();
   }, []);
 
   const handleSaveThreshold = () => {

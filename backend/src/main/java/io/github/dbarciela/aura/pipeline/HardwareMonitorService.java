@@ -22,14 +22,14 @@ import oshi.hardware.HardwareAbstractionLayer;
 @Service
 public class HardwareMonitorService {
 
-	private final LiveChatBroadcaster broadcaster;
+	private final SseBroadcaster broadcaster;
 	private final SystemInfo systemInfo;
 	private final HardwareAbstractionLayer hal;
 
 	private boolean nvidiaSmiAvailable = true;
 	private static final Logger log = LoggerFactory.getLogger(HardwareMonitorService.class);
 
-	public HardwareMonitorService(LiveChatBroadcaster broadcaster) {
+	public HardwareMonitorService(SseBroadcaster broadcaster) {
 		this.broadcaster = broadcaster;
 		this.systemInfo = new SystemInfo();
 		this.hal = systemInfo.getHardware();

@@ -16,7 +16,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 @Component
-public class LiveChatBroadcaster {
+public class SseBroadcaster {
 
 	private static final ObjectMapper mapper = new ObjectMapper();
 
@@ -132,6 +132,12 @@ public class LiveChatBroadcaster {
 	public void broadcastHardware(String jsonPayload) {
 		String eventMessage = String.format("{\"id\":\"%s\",\"type\":\"%s\",\"data\":%s}",
 				UUID.randomUUID().toString(), "HARDWARE", jsonPayload);
+		pushEventToAll(eventMessage);
+	}
+
+	public void broadcastSlots(String jsonPayload) {
+		String eventMessage = String.format("{\"id\":\"%s\",\"type\":\"%s\",\"data\":%s}",
+				UUID.randomUUID().toString(), "SLOTS", jsonPayload);
 		pushEventToAll(eventMessage);
 	}
 

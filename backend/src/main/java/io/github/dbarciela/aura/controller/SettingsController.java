@@ -35,19 +35,21 @@ public class SettingsController {
 		this.proxyPipeline = proxyPipeline;
 	}
 
-	@GetMapping("/settings")
-	public Map<String, Object> getSettings() {
-		Map<String, Object> combined = new HashMap<>();
+	@GetMapping(value = "/settings", produces = "application/json")
+	public String getSettings() throws Exception {
+		ObjectMapper mapper = new ObjectMapper();
+		com.fasterxml.jackson.databind.node.ObjectNode combined = mapper.createObjectNode();
 		combined.put("defaultTab", settings.getDefaultTab());
 		combined.put("loggingEnabled", settings.isLoggingEnabled());
 		combined.put("webUiUrl", settings.getWebUiUrl());
 		combined.put("schemaUrl", settings.getSchemaUrl());
 
-		// Return flat structure for backwards compatibility for a moment, or nested
-		// plugins map
-		combined.put("plugins", pluginSettingsManager.getAllSettings());
+		com.fasterxml.jackson.databind.node.ObjectNode pluginsNode = combined.putObject("plugins");
+		for (Map.Entry<String, JsonNode> entry : pluginSettingsManager.getAllSettings().entrySet()) {
+			pluginsNode.set(entry.getKey(), entry.getValue());
+		}
 
-		return combined;
+		return mapper.writeValueAsString(combined);
 	}
 
 	@PutMapping("/settings")

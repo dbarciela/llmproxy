@@ -15,7 +15,7 @@ import org.springframework.stereotype.Component;
 
 import io.github.dbarciela.aura.config.PluginSettingsManager;
 import io.github.dbarciela.aura.pipeline.BufferingPlugin;
-import io.github.dbarciela.aura.pipeline.LiveChatBroadcaster;
+import io.github.dbarciela.aura.pipeline.SseBroadcaster;
 import io.github.dbarciela.aura.pipeline.RequestContext;
 import io.github.dbarciela.aura.pipeline.ResponseContext;
 
@@ -24,7 +24,7 @@ import io.github.dbarciela.aura.pipeline.ResponseContext;
 public class ContextDeduplicatorPlugin implements BufferingPlugin {
 
 	private final PluginSettingsManager settingsManager;
-	private final LiveChatBroadcaster broadcaster;
+	private final SseBroadcaster broadcaster;
 	private final ObjectMapper mapper = new ObjectMapper();
 
 
@@ -41,7 +41,7 @@ public class ContextDeduplicatorPlugin implements BufferingPlugin {
 		return stats;
 	}
 
-	public ContextDeduplicatorPlugin(PluginSettingsManager settingsManager, LiveChatBroadcaster broadcaster) {
+	public ContextDeduplicatorPlugin(PluginSettingsManager settingsManager, SseBroadcaster broadcaster) {
 		this.settingsManager = settingsManager;
 		this.broadcaster = broadcaster;
 	}

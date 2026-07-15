@@ -20,7 +20,7 @@ import io.github.dbarciela.aura.db.NotificationRepository;
 public class NotificationServiceTest {
 
 	@Mock
-	private LiveChatBroadcaster broadcaster;
+	private SseBroadcaster broadcaster;
 
 	@Mock
 	private NotificationRepository repository;

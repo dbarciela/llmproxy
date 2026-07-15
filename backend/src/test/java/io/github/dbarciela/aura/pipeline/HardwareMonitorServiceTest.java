@@ -13,7 +13,7 @@ import org.mockito.MockitoAnnotations;
 public class HardwareMonitorServiceTest {
 
 	@Mock
-	private LiveChatBroadcaster broadcaster;
+	private SseBroadcaster broadcaster;
 
 	private HardwareMonitorService service;
 

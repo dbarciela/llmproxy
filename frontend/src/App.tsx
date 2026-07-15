@@ -8,6 +8,7 @@ import { pluginComponents } from './plugins';
 import { ConfigurationScreen } from './components/ConfigurationScreen';
 import { Activity, ServerCrash, RefreshCw, Settings, Database } from 'lucide-react';
 import { HardwareWidget } from './components/HardwareWidget';
+import { SlotsWidget } from './components/SlotsWidget';
 import { NetworkIndicator } from './components/NetworkIndicator';
 import { CommandPalette } from './components/CommandPalette';
 import { registerCommand, registerSearchProvider } from './plugins/PluginRegistry';
@@ -44,7 +45,7 @@ export default function App() {
   const [globalPlugins, setGlobalPlugins] = useState<any[]>([]);
 
   const fetchMetadata = () => {
-    fetch('/api/proxy/plugins/metadata')
+    fetch('/api/proxy/plugins/metadata', { cache: 'no-store' })
       .then(r => r.json())
       .then(setGlobalPlugins)
       .catch(console.error);
@@ -53,8 +54,8 @@ export default function App() {
   useEffect(() => {
     fetchMetadata();
     Promise.all([
-      fetch('/api/proxy/settings').then(res => res.json()),
-      fetch('/api/proxy/target-url').then(res => res.text())
+      fetch('/api/proxy/settings', { cache: 'no-store' }).then(res => res.json()),
+      fetch('/api/proxy/target-url', { cache: 'no-store' }).then(res => res.text())
     ]).then(([settingsData, url]) => {
       setIsLoggingEnabled(settingsData.loggingEnabled);
       setDefaultTab(settingsData.defaultTab || 'live-chat-plugin');
@@ -330,8 +331,9 @@ export default function App() {
 
       {/* Status Bar */}
       <footer className="h-6 bg-gray-900 border-t border-gray-800 flex items-center px-4 justify-between z-50">
-        <div className="flex items-center">
+        <div className="flex items-center space-x-4">
           <HardwareWidget />
+          <SlotsWidget />
         </div>
         <div className="flex items-center space-x-4">
           <NetworkIndicator />

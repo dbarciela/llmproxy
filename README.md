@@ -13,7 +13,8 @@ With Aura, you can seamlessly intercept, modify, monitor, and archive your AI AP
 
 * **🕵️‍♂️ Live Inspection & Interception**: Monitor LLM traffic in real-time (with streaming & Markdown support). Pause, review, and edit JSON payloads mid-flight using a built-in Monaco Editor.
 * **🧠 Context Optimization**: Automatically strip out massive, redundant text blocks using a Rabin-Karp algorithm (Context Deduplication) and transform prompts on-the-fly to save tokens and VRAM.
-* **📊 Advanced Telemetry**: Track live system metrics (CPU, VRAM usage) and token generation speeds (Time-to-First-Token, T/s) directly from the dashboard status bar.
+* **📊 Advanced Telemetry**: Track live system metrics (CPU, VRAM usage) directly from the dashboard status bar.
+* **📈 Llama.cpp Metrics Monitor**: Features a built-in interactive dashboard that hooks directly into Llama.cpp's internal `/slots` and `/metrics` APIs. It tracks concurrent generation slots, calculates per-slot Token Speed (T/s), visualizes context limits, and displays server-wide Prometheus health metrics in real-time.
 * **🗃️ Smart Archiving**: Automatically logs all traffic to an FTS5-backed SQLite database for blazing-fast full-text searches. Aura actively purges redundant chat sessions to keep your history clean.
 * **🛠️ Server Orchestration**: Control your local backend (e.g., `llama.cpp`) right from the UI. Stream console logs, trigger background updates, or launch connected Web UIs with a single click.
 * **🧩 Modular Plugin Pipeline**: Built on a highly concurrent Java Virtual Threads backend with a drag-and-drop React frontend. Easily build and reorder custom interceptors (Streaming, Async, or Buffering) without touching the core framework. See the [Plugins Documentation](docs/PLUGINS.md).

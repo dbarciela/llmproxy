@@ -5,15 +5,15 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
-import io.github.dbarciela.aura.pipeline.LiveChatBroadcaster;
+import io.github.dbarciela.aura.pipeline.SseBroadcaster;
 
 @RestController
 @RequestMapping("/api/proxy")
 public class LiveChatController {
 
-	private final LiveChatBroadcaster broadcaster;
+	private final SseBroadcaster broadcaster;
 
-	public LiveChatController(LiveChatBroadcaster broadcaster) {
+	public LiveChatController(SseBroadcaster broadcaster) {
 		this.broadcaster = broadcaster;
 	}
 
