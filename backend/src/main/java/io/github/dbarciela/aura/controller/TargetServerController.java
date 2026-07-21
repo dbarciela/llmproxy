@@ -63,6 +63,7 @@ public class TargetServerController {
 	private final AtomicBoolean serverHealthy = new AtomicBoolean(false);
 	private static final Logger log = LoggerFactory.getLogger(TargetServerController.class);
 	private final HttpClient healthHttpClient;
+	private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
 	public TargetServerController(@Value("${target.server.url}") String targetServerUrl,
 			@Value("${target.server.restart-script}") String restartScript,
@@ -251,7 +252,7 @@ public class TargetServerController {
 					payload.put("type", "INITIAL");
 					payload.put("data", "Log file not found. Have you restarted the server yet?\n");
 					emitter.send(SseEmitter.event().name("log")
-							.data(new ObjectMapper().writeValueAsString(payload)));
+								.data(OBJECT_MAPPER.writeValueAsString(payload)));
 				}
 
 				while (true) {
@@ -274,7 +275,7 @@ public class TargetServerController {
 							payload.put("type", "APPEND");
 							payload.put("data", newLogs);
 							emitter.send(SseEmitter.event()
-									.name("log").data(new ObjectMapper()
+										.name("log").data(OBJECT_MAPPER
 											.writeValueAsString(payload)));
 						}
 					}
@@ -294,7 +295,6 @@ public class TargetServerController {
 	public SseEmitter updateLlamaStream() {
 		SseEmitter emitter = new SseEmitter(
 				Long.MAX_VALUE);
-		ObjectMapper mapper = new ObjectMapper();
 
 		Thread.startVirtualThread(() -> {
 			try {
@@ -305,7 +305,7 @@ public class TargetServerController {
 						payload.put("step", step);
 						payload.put("status", status);
 						emitter.send(SseEmitter.event()
-								.name("progress").data(mapper.writeValueAsString(payload)));
+								.name("progress").data(OBJECT_MAPPER.writeValueAsString(payload)));
 					} catch (Exception e) {
 					}
 				};
@@ -330,7 +330,7 @@ public class TargetServerController {
 					throw new RuntimeException("Failed to fetch release data from GitHub.");
 				}
 
-				JsonNode releaseData = mapper.readTree(jsonResponse);
+				JsonNode releaseData = OBJECT_MAPPER.readTree(jsonResponse);
 
 				// 2. Find asset matching regex
 				Pattern pattern = Pattern.compile(releaseRegex);
@@ -448,7 +448,7 @@ public class TargetServerController {
 					payload.put("status", "error");
 					payload.put("message", e.getMessage());
 					emitter.send(SseEmitter.event()
-							.name("progress").data(mapper.writeValueAsString(payload)));
+							.name("progress").data(OBJECT_MAPPER.writeValueAsString(payload)));
 					emitter.completeWithError(e);
 				} catch (Exception ex) {
 				}
@@ -481,7 +481,7 @@ public class TargetServerController {
 						.body(Map.of("error", "Failed to fetch release data"));
 			}
 
-			JsonNode releaseData = new ObjectMapper()
+			JsonNode releaseData = OBJECT_MAPPER
 					.readTree(jsonResponse);
 
 			if (!releaseData.has("tag_name")) {
