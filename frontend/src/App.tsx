@@ -6,6 +6,7 @@ import { ProgressModal } from './components/ProgressModal';
 import { useBackgroundTasks } from './hooks/useBackgroundTasks';
 import { pluginComponents } from './plugins';
 import { ConfigurationScreen } from './components/ConfigurationScreen';
+import { RestartButton } from './components/RestartButton';
 import { Activity, ServerCrash, RefreshCw, Settings, Database } from 'lucide-react';
 import { HardwareWidget } from './components/HardwareWidget';
 import { SlotsWidget } from './components/SlotsWidget';
@@ -107,13 +108,20 @@ export default function App() {
     }).catch(err => console.error("Error updating plugin settings:", err));
   };
 
-  const restartServer = () => {
-    if (window.confirm("Are you sure you want to restart the Llama server?")) {
+  const restartServer = (cmd?: string, cmdName?: string) => {
+    const promptMsg = cmdName
+      ? `Are you sure you want to restart the Llama server with "${cmdName}"?`
+      : "Are you sure you want to restart the Llama server?";
+    if (window.confirm(promptMsg)) {
       setIsLogsOpen(true);
-      fetch('/api/proxy/restart-target', { method: 'POST' })
+      fetch('/api/proxy/restart-target', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: cmd ? JSON.stringify({ command: cmd }) : undefined
+      })
         .then(res => {
           if (!res.ok) toast.error('Failed to restart server');
-          else toast.success('Server restart initiated');
+          else toast.success(`Server restart initiated${cmdName ? `: ${cmdName}` : ''}`);
         })
         .catch(err => {
           console.error("Error restarting server:", err);
@@ -236,9 +244,9 @@ export default function App() {
   ].sort((a, b) => a.order - b.order);
 
   return (
-    <div className="flex flex-col h-screen bg-gray-950 text-gray-100 font-sans">
+    <div className="flex flex-col h-full w-full overflow-hidden bg-gray-950 text-gray-100 font-sans">
       {/* Top Toolbar */}
-      <header className="flex items-center justify-between px-6 py-4 bg-gray-900 border-b border-gray-800 shadow-md z-50 relative">
+      <header className="flex items-center justify-between px-6 py-4 bg-gray-900 border-b border-gray-800 shadow-md z-50 relative flex-shrink-0">
         <div className="flex items-center space-x-6">
           <h1
             onClick={() => setActiveTab('settings')}
@@ -330,7 +338,7 @@ export default function App() {
       />
 
       {/* Status Bar */}
-      <footer className="h-6 bg-gray-900 border-t border-gray-800 flex items-center px-4 justify-between z-50">
+      <footer className="h-6 bg-gray-900 border-t border-gray-800 flex items-center px-4 justify-between z-50 flex-shrink-0">
         <div className="flex items-center space-x-4">
           <HardwareWidget />
           <SlotsWidget />
@@ -348,13 +356,10 @@ export default function App() {
                 {serverHealthy ? 'Online' : 'Offline'}
               </span>
             </button>
-            <button
-              onClick={restartServer}
-              title="Restart Server"
-              className="text-gray-500 hover:text-gray-300 transition-colors flex items-center"
-            >
-              <RefreshCw className="w-3 h-3" />
-            </button>
+            <RestartButton
+              onRestart={(cmd, cmdName) => restartServer(cmd, cmdName)}
+              onOpenSettings={() => setActiveTab('settings')}
+            />
           </div>
         </div>
       </footer>

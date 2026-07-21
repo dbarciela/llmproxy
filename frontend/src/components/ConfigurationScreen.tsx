@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-pangea/dnd';
-import { Settings, GripVertical, Shield, Activity, Layers, Type, Eye, EyeOff, AlertTriangle, RefreshCw, Zap } from 'lucide-react';
+import { Settings, GripVertical, Shield, Activity, Layers, Type, Eye, EyeOff, AlertTriangle, RefreshCw, Zap, Terminal, Plus, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface PluginMetadata {
   id: string;
@@ -12,6 +13,12 @@ interface PluginMetadata {
   isAsync?: boolean;
 }
 
+interface RestartCommand {
+  id: string;
+  name: string;
+  command: string;
+}
+
 export function ConfigurationScreen({ globalPlugins, updatePluginOrder, hiddenTabs, toggleTabHidden, defaultTab, updateDefaultTab }: { 
   globalPlugins: PluginMetadata[];
   updatePluginOrder: (newOrder: string[]) => void;
@@ -21,10 +28,65 @@ export function ConfigurationScreen({ globalPlugins, updatePluginOrder, hiddenTa
   updateDefaultTab: (tabId: string) => void;
 }) {
   const [plugins, setPlugins] = useState<PluginMetadata[]>(globalPlugins);
+  const [restartCommands, setRestartCommands] = useState<RestartCommand[]>([]);
+  const [newName, setNewName] = useState('');
+  const [newCommand, setNewCommand] = useState('');
+  const [isSavingCmds, setIsSavingCmds] = useState(false);
 
   useEffect(() => {
     setPlugins(globalPlugins);
   }, [globalPlugins]);
+
+  useEffect(() => {
+    fetch('/api/proxy/restart-commands')
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) setRestartCommands(data);
+      })
+      .catch(err => console.error("Failed to load restart commands:", err));
+  }, []);
+
+  const saveCommands = async (cmdsToSave: RestartCommand[]) => {
+    setIsSavingCmds(true);
+    try {
+      const res = await fetch('/api/proxy/restart-commands', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(cmdsToSave)
+      });
+      if (res.ok) {
+        toast.success('Restart commands updated');
+      } else {
+        toast.error('Failed to update restart commands');
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to update restart commands');
+    } finally {
+      setIsSavingCmds(false);
+    }
+  };
+
+  const handleAddCommand = () => {
+    if (!newCommand.trim()) return;
+    const name = newName.trim() || newCommand.trim().split(/[/\\]/).pop() || 'Command';
+    const newCmdObj: RestartCommand = {
+      id: 'cmd-' + Math.random().toString(36).substring(2, 9),
+      name,
+      command: newCommand.trim()
+    };
+    const updated = [...restartCommands, newCmdObj];
+    setRestartCommands(updated);
+    setNewName('');
+    setNewCommand('');
+    saveCommands(updated);
+  };
+
+  const handleRemoveCommand = (id: string) => {
+    const updated = restartCommands.filter(c => c.id !== id);
+    setRestartCommands(updated);
+    saveCommands(updated);
+  };
 
   const handleDragEnd = (result: DropResult) => {
     if (!result.destination) return;
@@ -56,7 +118,7 @@ export function ConfigurationScreen({ globalPlugins, updatePluginOrder, hiddenTa
             Global Pipeline Configuration
           </h2>
           <p className="text-gray-400 mt-1">
-            Reorder how requests flow through the Aura plugins.
+            Reorder how requests flow through the Aura plugins and configure system options.
           </p>
         </div>
       </div>
@@ -83,6 +145,68 @@ export function ConfigurationScreen({ globalPlugins, updatePluginOrder, hiddenTa
                 <option key={p.id} value={p.id}>{p.uiTabName}</option>
               ))}
             </select>
+          </div>
+        </div>
+
+        {/* Target Server Restart Commands Settings */}
+        <div className="bg-gray-800 p-5 rounded-xl border border-gray-700">
+          <h3 className="text-lg font-medium text-gray-200 mb-2 flex items-center">
+            <Terminal className="w-5 h-5 mr-2 text-orange-400" />
+            Target Server Restart Commands
+          </h3>
+          <p className="text-sm text-gray-400 mb-4">
+            Configure target server restart commands. The status bar restart button executes the last selected command.
+          </p>
+
+          <div className="space-y-2 mb-4">
+            {restartCommands.length === 0 ? (
+              <div className="p-4 bg-gray-900/50 rounded-lg border border-gray-700 text-sm text-gray-500 text-center">
+                No custom commands configured yet. Add your scripts below.
+              </div>
+            ) : (
+              restartCommands.map((cmd, idx) => (
+                <div key={cmd.id || idx} className="flex items-center justify-between p-3 bg-gray-900/60 rounded-lg border border-gray-700">
+                  <div className="flex-1 min-w-0 pr-4">
+                    <div className="text-sm font-semibold text-gray-200">{cmd.name}</div>
+                    <div className="text-xs font-mono text-gray-400 truncate" title={cmd.command}>{cmd.command}</div>
+                  </div>
+                  <button
+                    onClick={() => handleRemoveCommand(cmd.id)}
+                    className="p-1.5 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded transition-colors"
+                    title="Remove command"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+
+          <div className="p-4 bg-gray-900/40 rounded-lg border border-gray-750 space-y-3">
+            <div className="text-xs font-semibold uppercase tracking-wider text-gray-400">Add New Restart Command</div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <input
+                type="text"
+                placeholder="Name (e.g. Run 27B)"
+                value={newName}
+                onChange={e => setNewName(e.target.value)}
+                className="bg-gray-800 text-gray-200 border border-gray-700 rounded-lg px-3 py-2 text-sm outline-none focus:border-orange-500"
+              />
+              <input
+                type="text"
+                placeholder="Command / Script Path (e.g. C:\ai\run 27b.bat)"
+                value={newCommand}
+                onChange={e => setNewCommand(e.target.value)}
+                className="bg-gray-800 text-gray-200 border border-gray-700 rounded-lg px-3 py-2 text-sm font-mono outline-none focus:border-orange-500"
+              />
+            </div>
+            <button
+              onClick={handleAddCommand}
+              disabled={!newCommand.trim() || isSavingCmds}
+              className="px-4 py-2 bg-orange-600 hover:bg-orange-500 disabled:opacity-50 text-white rounded-lg text-xs font-semibold transition-colors flex items-center"
+            >
+              <Plus className="w-4 h-4 mr-1.5" /> Add Command
+            </button>
           </div>
         </div>
 

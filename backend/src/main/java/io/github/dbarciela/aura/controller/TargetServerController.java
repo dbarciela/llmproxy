@@ -36,12 +36,15 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import io.github.dbarciela.aura.config.ProxySettings;
 import io.github.dbarciela.aura.pipeline.NotificationDTO;
 import io.github.dbarciela.aura.pipeline.NotificationService;
 
@@ -56,6 +59,7 @@ public class TargetServerController {
 	private final String releaseRegex;
 	private final RestClient restClient;
 	private final NotificationService notificationService;
+	private final ProxySettings proxySettings;
 	private final AtomicBoolean serverHealthy = new AtomicBoolean(false);
 	private static final Logger log = LoggerFactory.getLogger(TargetServerController.class);
 	private final HttpClient healthHttpClient;
@@ -64,12 +68,14 @@ public class TargetServerController {
 			@Value("${target.server.restart-script}") String restartScript,
 			@Value("${llama.cpp.install.dir}") String installDir,
 			@Value("${llama.cpp.release.regex}") String releaseRegex,
-			NotificationService notificationService) {
+			NotificationService notificationService,
+			ProxySettings proxySettings) {
 		this.targetServerUrl = targetServerUrl;
 		this.restartScript = restartScript;
 		this.installDir = installDir;
 		this.releaseRegex = releaseRegex;
 		this.notificationService = notificationService;
+		this.proxySettings = proxySettings;
 
 		HttpClient httpClient = HttpClient.newBuilder()
 				.followRedirects(HttpClient.Redirect.NORMAL).build();
@@ -130,6 +136,17 @@ public class TargetServerController {
 		return targetServerUrl;
 	}
 
+	@GetMapping("/restart-commands")
+	public List<ProxySettings.RestartCommand> getRestartCommands() {
+		return proxySettings.getRestartCommands();
+	}
+
+	@PutMapping("/restart-commands")
+	public ResponseEntity<Void> updateRestartCommands(@RequestBody List<ProxySettings.RestartCommand> commands) {
+		proxySettings.setRestartCommands(commands);
+		return ResponseEntity.ok().build();
+	}
+
 	private void killProcessOnPort(int port) {
 		try {
 			Process process = new ProcessBuilder("cmd.exe", "/c", "netstat -ano | findstr :" + port).start();
@@ -153,8 +170,31 @@ public class TargetServerController {
 	}
 
 	@PostMapping("/restart-target")
-	public ResponseEntity<String> restartTarget() {
+	public ResponseEntity<String> restartTarget(@RequestBody(required = false) Map<String, String> payload) {
 		try {
+			String commandToRun = null;
+			if (payload != null) {
+				if (payload.containsKey("command") && payload.get("command") != null && !payload.get("command").isBlank()) {
+					commandToRun = payload.get("command");
+				} else if (payload.containsKey("id") && payload.get("id") != null && !payload.get("id").isBlank()) {
+					String id = payload.get("id");
+					for (ProxySettings.RestartCommand rc : proxySettings.getRestartCommands()) {
+						if (id.equals(rc.getId())) {
+							commandToRun = rc.getCommand();
+							break;
+						}
+					}
+				}
+			}
+
+			if (commandToRun == null || commandToRun.isBlank()) {
+				if (proxySettings.getRestartCommands() != null && !proxySettings.getRestartCommands().isEmpty()) {
+					commandToRun = proxySettings.getRestartCommands().get(0).getCommand();
+				} else {
+					commandToRun = restartScript;
+				}
+			}
+
 			// Extract port from targetServerUrl
 			URL url = URI.create(targetServerUrl).toURL();
 			int port = url.getPort();
@@ -165,15 +205,15 @@ public class TargetServerController {
 			// Wait a second for OS to release port
 			Thread.sleep(1000);
 
-			ProcessBuilder pb = new ProcessBuilder("cmd.exe", "/c", restartScript);
-			File scriptFile = new File(restartScript);
+			ProcessBuilder pb = new ProcessBuilder("cmd.exe", "/c", commandToRun);
+			File scriptFile = new File(commandToRun);
 			if (scriptFile.exists() && scriptFile.getParentFile() != null) {
 				pb.directory(scriptFile.getParentFile());
 			}
 			pb.redirectErrorStream(true);
 			pb.redirectOutput(new File("target-server.log"));
 			pb.start();
-			return ResponseEntity.ok("Restart command issued.");
+			return ResponseEntity.ok("Restart command issued: " + commandToRun);
 		} catch (Exception e) {
 			return ResponseEntity.internalServerError().body("Failed to execute restart script: " + e.getMessage());
 		}

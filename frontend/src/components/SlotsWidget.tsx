@@ -34,7 +34,8 @@ export function SlotsWidget() {
       activeSlots: true,
       avgCtx: true,
       globalPp: false,
-      globalTg: false
+      globalTg: false,
+      reqsDeferred: false
     };
   });
 
@@ -150,6 +151,19 @@ export function SlotsWidget() {
                 <span className="text-green-400 font-mono">{globalMetrics.predicted_tokens_seconds?.toFixed(1) || 0}</span>
               </>
             )}
+            {visibleStats.reqsDeferred && (
+              <>
+                <div className="w-px h-3 bg-gray-700 mx-1"></div>
+                <span className="text-gray-400" title="Requests Processing / Deferred">Reqs</span>
+                <span className="font-mono">
+                  <span className="text-gray-200">{globalMetrics.requests_processing || 0}</span>
+                  <span className="text-gray-500">/</span>
+                  <span className={globalMetrics.requests_deferred > 0 ? 'text-yellow-400 font-bold' : 'text-gray-400'}>
+                    {globalMetrics.requests_deferred || 0}
+                  </span>
+                </span>
+              </>
+            )}
           </>
         )}
       </div>
@@ -213,7 +227,12 @@ export function SlotsWidget() {
                        <div className="text-lg font-mono text-gray-200">{globalMetrics.requests_processing || 0}</div>
                      </div>
                      <div>
-                       <div className="text-[10px] text-gray-500 uppercase tracking-widest">Reqs Deferred</div>
+                       <div className="text-[10px] text-gray-500 uppercase tracking-widest flex items-center justify-between group">
+                         <span>Reqs Deferred</span>
+                         <button onClick={(e) => { e.stopPropagation(); toggleStat('reqsDeferred'); }} className={`p-0.5 rounded transition-colors ${visibleStats.reqsDeferred ? 'text-orange-400 bg-orange-400/10' : 'text-gray-600 hover:text-gray-400'}`} title="Toggle in status bar">
+                           {visibleStats.reqsDeferred ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
+                         </button>
+                       </div>
                        <div className="text-lg font-mono text-yellow-400">{globalMetrics.requests_deferred || 0}</div>
                      </div>
                   </div>
