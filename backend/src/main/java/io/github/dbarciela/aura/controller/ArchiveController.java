@@ -64,9 +64,7 @@ public class ArchiveController {
 
 		String improvedTitle = llmTitleService.generateTitle(payload);
 
-		for (String id : ids) {
-			repository.updateImprovedTitle(id, improvedTitle);
-		}
+		repository.updateImprovedTitles(ids, improvedTitle);
 
 		return Map.of("improved_title", improvedTitle);
 	}
