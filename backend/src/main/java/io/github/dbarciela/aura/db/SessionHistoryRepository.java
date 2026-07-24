@@ -62,6 +62,17 @@ public class SessionHistoryRepository {
 		jdbcTemplate.update("UPDATE session_history SET improved_title = ? WHERE id = ?", improvedTitle, id);
 	}
 
+	public void updateImprovedTitles(List<String> ids, String improvedTitle) {
+		if (ids == null || ids.isEmpty()) {
+			return;
+		}
+		String inSql = String.join(",", Collections.nCopies(ids.size(), "?"));
+		List<Object> args = new java.util.ArrayList<>();
+		args.add(improvedTitle);
+		args.addAll(ids);
+		jdbcTemplate.update(String.format("UPDATE session_history SET improved_title = ? WHERE id IN (%s)", inSql), args.toArray());
+	}
+
 	public List<Map<String, Object>> search(String query) {
 		if (query == null || query.trim().isEmpty()) {
 			return jdbcTemplate.queryForList("SELECT * FROM session_history ORDER BY created_at DESC LIMIT 50");
