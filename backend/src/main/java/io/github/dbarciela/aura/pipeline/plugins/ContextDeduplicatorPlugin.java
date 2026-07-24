@@ -126,10 +126,10 @@ public class ContextDeduplicatorPlugin implements BufferingPlugin {
 
 			for (int msgIdx = 1; msgIdx < messages.size(); msgIdx++) {
 				JsonNode currentMsg = messages.get(msgIdx);
-				String history = historyBuilder.toString();
 
-				if (currentMsg.has("content") && !history.isEmpty()
+				if (currentMsg.has("content") && historyBuilder.length() > 0
 						&& !"system".equals(currentMsg.path("role").asText())) {
+					String history = historyBuilder.toString();
 					String currentContent = currentMsg.get("content").asText();
 
 					int threshold = pluginSettings.threshold;
